@@ -11,5 +11,5 @@ fn rps_train_benchmark(c: &mut Criterion) {
     });
 }
 
-criterion_group!(benches, rps_train_benchmark);
-criterion_main!(benches);
+criterion_group!(rps_benches, rps_train_benchmark);
+criterion_main!(rps_benches);

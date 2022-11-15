@@ -1,6 +1,10 @@
 [workspace]
 members = [
     "rps",
+    "blotto",
+]
+default-members = [
+    "blotto"
 ]
 
 [profile.release]
