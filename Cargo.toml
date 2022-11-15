@@ -1,0 +1,10 @@
+[workspace]
+members = [
+    "rps",
+]
+
+[profile.release]
+debug = 1
+
+[profile.dev]
+opt-level = 3
