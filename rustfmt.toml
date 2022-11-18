@@ -1,5 +1,6 @@
 edition = "2021"
 reorder_imports = true
+use_small_heuristics = "Off"
 
 #### nightly features follow
 imports_layout = "Vertical"

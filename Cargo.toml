@@ -3,9 +3,10 @@ members = [
     "rps",
     "blotto",
     "kuhn",
+    "dudo"
 ]
 default-members = [
-    "kuhn",
+    "dudo",
 ]
 
 [profile.release]
