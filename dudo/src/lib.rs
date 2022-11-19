@@ -10,6 +10,7 @@ use log::{
 use more_asserts::{
     assert_ge,
     assert_gt,
+    debug_assert_ge,
 };
 use rand::{
     rngs::ThreadRng,
@@ -135,6 +136,7 @@ impl From<PlayerId> for usize {
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct InfoSet {
+    pub uid: u64,
     pub round: u32,
     pub next_player_id: PlayerId,
     pub actions: Vec<Action>,
@@ -158,7 +160,29 @@ impl InfoSet {
 impl From<&State> for InfoSet {
     fn from(state: &State) -> Self {
         assert_ne!(state.next_player_id, PlayerId::Chance);
+        let mut uid: u64 = 0;
+        // max: 12 loops * 5 = 60 bits
+        for act in state.actions.iter() {
+            match act {
+                Action::Claim(c) => {
+                    uid = (uid << 2) | c.count as u64; // count: [0, 2] -> 2 bits
+                    uid = (uid << 3) | c.rank as u64; // rank: [0, 5] -> 3 bits
+                }
+                _ => todo!(),
+            }
+        }
+        // dice: [0, 5] 3 bits
+        for (dice, cnt) in
+            state.player_rolls[state.next_player_id as usize].count.iter().enumerate()
+        {
+            if *cnt == 1 {
+                uid = (uid << 3) | dice as u64;
+                break;
+            }
+        }
+
         Self {
+            uid,
             round: state.round,
             next_player_id: state.next_player_id,
             actions: state.actions.clone(),
@@ -170,12 +194,7 @@ impl From<&State> for InfoSet {
 
 impl std::hash::Hash for InfoSet {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        for act in self.actions.iter() {
-            act.hash(state);
-        }
-        for roll in self.player_roll.count {
-            roll.hash(state);
-        }
+        self.uid.hash(state);
     }
 }
 
@@ -376,22 +395,23 @@ impl Node {
         v
     }
 
-    pub fn actions_len(&self) -> usize {
-        self.list_legal_actions().len()
-    }
-
     pub fn to_strategy(&mut self, realization_weight: f64) -> Vec<f64> {
-        let positive_regret_sum: Vec<f64> = self.regret_sum.iter().map(|v| v.max(0.0)).collect();
-        let normalizing_sum: f64 = positive_regret_sum.iter().sum();
-        let actions_len = self.actions_len();
-        self.strategy = if normalizing_sum == 0.0 {
-            vec![1.0 / actions_len as f64; actions_len]
+        let normalizing_sum: f64 = self.regret_sum.iter().filter(|v| **v >= 0.0).sum();
+        let actions_len = self.strategy.len();
+        if normalizing_sum == 0.0 {
+            self.strategy = vec![1.0 / actions_len as f64; actions_len];
         } else {
-            positive_regret_sum.iter().map(|reg| *reg / normalizing_sum).collect()
+            for (i, reg) in self.regret_sum.iter().enumerate() {
+                self.strategy[i] = if *reg >= 0.0 {
+                    *reg / normalizing_sum
+                } else {
+                    0.0
+                };
+            }
         };
 
         for i in 0..actions_len {
-            assert_ge!(self.strategy[i], 0.0);
+            debug_assert_ge!(self.strategy[i], 0.0);
             self.strategy_sum[i] += realization_weight * self.strategy[i];
         }
 
@@ -402,7 +422,7 @@ impl Node {
     pub fn to_average_strategy(&self) -> Vec<f64> {
         let normalizing_sum: f64 = self.strategy_sum.iter().sum();
         if normalizing_sum == 0.0 {
-            let actions_len = self.actions_len();
+            let actions_len = self.strategy.len();
             return vec![1.0 / actions_len as f64; actions_len];
         }
         self.strategy_sum.iter().map(|s| s / normalizing_sum).collect()
@@ -479,7 +499,7 @@ impl Trainer {
             node.regret_sum.resize(actions_len, 0.0);
         }
 
-        let mut action_utils = vec![0.0; actions_len];
+        let mut action_utils = vec![0.0; actions_len]; // Note: allocating array on the stack is faster.
         let realization_weight = actions_prob[player as usize];
         let strategy = node.to_strategy(realization_weight);
         for (i, act) in actions.iter().enumerate() {
