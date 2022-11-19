@@ -5,7 +5,9 @@ fn main() {
     );
 
     let mut trainer = dudo::Trainer::new();
-    trainer.train(100);
-    //trainer.train(10_000);
-    //trainer.train(10_000_000);  // it may take 5 hours
+    //trainer.train(100);
+    trainer.train(100_000); // it takes 2 mins
+
+    //trainer.train(500_000); // it takes 10 mins
+    //trainer.train(10_000_000); // it may take 2.5 hours
 }

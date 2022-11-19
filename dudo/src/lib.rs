@@ -8,9 +8,9 @@ use log::{
     info,
 };
 use more_asserts::{
-    assert_ge,
     assert_gt,
     debug_assert_ge,
+    debug_assert_gt,
 };
 use rand::{
     rngs::ThreadRng,
@@ -241,7 +241,7 @@ impl State {
 
     fn update_claim(&mut self, claim: &Claim) {
         if !self.actions.is_empty() {
-            assert_gt!(*claim, self.current_claim());
+            debug_assert_gt!(*claim, self.current_claim());
         }
         self.next_player_id = self.next_player_id.opponent();
         self.actions.push(Action::Claim(*claim));
@@ -298,7 +298,7 @@ impl State {
     }
 
     pub fn get_payouts(&self) -> [f64; 2] {
-        assert!(self.is_terminal());
+        debug_assert!(self.is_terminal());
 
         let mut ret = [0.0; 2];
         for (i, cnt) in self.dice_count.iter().enumerate() {
@@ -531,7 +531,10 @@ impl Trainer {
         let mut rng = rand::thread_rng();
         let mut util = 0.0;
         const DICE_COUNT: usize = 1;
-        for _i in 0..iterations {
+        for i in 0..iterations {
+            if i != 0 && i % 10000 == 0 {
+                info!("epoch {}: Average game value: {}", i, util / i as f64);
+            }
             let initial = State::new_root(
                 [
                     RollResult::new_rand(&mut rng, DICE_COUNT),
