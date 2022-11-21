@@ -64,6 +64,7 @@ $ cargo run --release -p kuhn
 ```
 
 ## 1-Die-Versus-1-Die Dudo
+100000 iterations seem not enough to get [Full result](./dudo/result_100000.txt)
 ```
 $ cargo run -p dudo --release
 package:   /home/niwasaki/work/cfr-rs/dudo/Cargo.toml
