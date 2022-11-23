@@ -443,11 +443,20 @@ impl Display for Node {
         // avg Strategy
         let avg_strategy = self.to_average_strategy();
         let actions = self.list_legal_actions();
-        write!(f, "[")?;
+        write!(f, " Avg Strategy[")?;
         for i in 0..actions.len() {
             write!(f, "{}: {:.03}, ", actions[i], avg_strategy[i])?;
         }
         write!(f, "]")?;
+
+        // regrets
+        /*
+        write!(f, " Regret Sum [")?;
+        for i in 0..actions.len() {
+            write!(f, "{}: {:.08}, ", actions[i], self.regret_sum[i])?;
+        }
+        write!(f, "]")?;
+        */
 
         Ok(())
     }
@@ -552,7 +561,9 @@ impl Trainer {
         });
         info!("Nodes [");
         for node in nodes {
-            info!("    {}", node);
+            if node.list_legal_actions().len() > 1 {
+                info!("    {}", node);
+            }
         }
         info!("]");
 
