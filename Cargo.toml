@@ -1,12 +1,13 @@
 [workspace]
 members = [
+    "cfr",
     "rps",
     "blotto",
     "kuhn",
     "dudo"
 ]
 default-members = [
-    "dudo",
+    "cfr",
 ]
 
 [profile.release]
