@@ -1,6 +1,6 @@
 use clap::Parser;
 
-use cfr::games::dudo::DudoState;
+use cfr::games;
 
 #[derive(Parser)]
 pub struct AppArgs {
@@ -16,6 +16,6 @@ fn main() {
 
     let args = AppArgs::parse();
 
-    let mut trainer = cfr::Trainer::<DudoState>::new();
+    let mut trainer = cfr::Trainer::<games::kuhn::KuhnState>::new();
     trainer.train(args.iterations);
 }

@@ -7,7 +7,6 @@ use more_asserts::{
 use rand::Rng;
 
 use super::{
-    InfoSet,
     PlayerId,
     State,
 };
@@ -108,6 +107,19 @@ pub struct DudoState {
 
 impl State for DudoState {
     type InfoSet = DudoInfoSet;
+    type Action = DudoAction;
+
+    fn new_root<R: Rng>(rng: &mut R) -> Self {
+        let dice_count = 1;
+        DudoState::new_root(
+            [RollResult::new_rand(rng, dice_count), RollResult::new_rand(rng, dice_count)],
+            dice_count,
+        )
+    }
+
+    fn to_info_set(&self) -> DudoInfoSet {
+        DudoInfoSet::from(self)
+    }
 
     fn is_terminal(&self) -> bool {
         self.dice_count.iter().any(|cnt| *cnt == 0)
@@ -127,122 +139,15 @@ impl State for DudoState {
         ret
     }
 
-    fn to_info_set(&self) -> DudoInfoSet {
-        DudoInfoSet::from(self)
-    }
-
     fn get_node_player_id(&self) -> PlayerId {
         self.node_player_id
     }
 
-    fn new_root<R: Rng>(rng: &mut R) -> Self {
-        let dice_count = 1;
-        DudoState::new_root(
-            [RollResult::new_rand(rng, dice_count), RollResult::new_rand(rng, dice_count)],
-            dice_count,
-        )
-    }
-
-    fn with_action(&self, action: <DudoInfoSet as InfoSet>::Action) -> Self {
+    fn with_action(&self, action: Self::Action) -> Self {
         let mut next = self.clone();
         next.update(action);
         next
     }
-}
-
-impl DudoState {
-    pub fn new_root(player_rolls: [RollResult; 2], dice_count: i32) -> Self {
-        Self {
-            round: 0,
-            node_player_id: PlayerId::Player(0),
-            prev_winner: PlayerId::Player(0),
-            action_history: vec![],
-            player_rolls,
-            dice_count: [dice_count, dice_count],
-        }
-    }
-
-    fn update(&mut self, action: DudoAction) {
-        match action {
-            DudoAction::Claim(c) => self.update_claim(&c),
-            DudoAction::Dudo => self.update_dudo(),
-        }
-    }
-
-    fn opponent_player_id(&self, _player_id: PlayerId) -> PlayerId {
-        match self.node_player_id {
-            PlayerId::Chance => panic!(),
-            PlayerId::Player(i) => PlayerId::Player(i ^ 1),
-        }
-    }
-
-    fn update_claim(&mut self, claim: &Claim) {
-        if !self.action_history.is_empty() {
-            debug_assert_gt!(*claim, self.current_claim());
-        }
-        self.node_player_id = self.opponent_player_id(self.node_player_id);
-        self.action_history.push(DudoAction::Claim(*claim));
-    }
-
-    fn update_dudo(&mut self) {
-        let challenger = self.node_player_id;
-        let challenged = self.opponent_player_id(self.node_player_id);
-
-        let challenged_claim = self.current_claim();
-
-        let actual_dice_count: i32 =
-            self.player_rolls.iter().map(|roll| roll.count_dice(challenged_claim.rank)).sum();
-        let claimed_dice_count = challenged_claim.normalized_count();
-        let loser: PlayerId;
-        match actual_dice_count.cmp(&claimed_dice_count) {
-            std::cmp::Ordering::Greater => {
-                // the actual count exceeds the challenged claim
-                // challenger loses
-                loser = challenger;
-                let diff = actual_dice_count - claimed_dice_count;
-                assert_gt!(diff, 0);
-                self.dice_count[loser.index()] = 0.max(self.dice_count[loser.index()] - diff);
-            }
-            std::cmp::Ordering::Less => {
-                // the actual count is less than the challenged claim
-                // challenger wins
-                loser = challenged;
-                let diff = claimed_dice_count - actual_dice_count;
-                assert_gt!(diff, 0);
-                self.dice_count[loser.index()] = 0.max(self.dice_count[loser.index()] - diff);
-            }
-            std::cmp::Ordering::Equal => {
-                // challenger loses
-                loser = challenger;
-                self.dice_count[loser.index()] -= 1;
-            }
-        }
-        self.prev_winner = self.opponent_player_id(loser);
-        self.action_history.clear();
-        self.round += 1;
-    }
-
-    fn current_claim(&self) -> Claim {
-        if let DudoAction::Claim(claim) = self.action_history.last().unwrap() {
-            *claim
-        } else {
-            panic!()
-        }
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
-pub struct DudoInfoSet {
-    pub uid: u64,
-    pub round: u32,
-    pub next_player_id: PlayerId,
-    pub action_history: Vec<DudoAction>,
-    pub player_roll: RollResult,
-    pub dice_count: [i32; 2],
-}
-
-impl InfoSet for DudoInfoSet {
-    type Action = DudoAction;
 
     fn list_legal_actions(&self) -> Vec<DudoAction> {
         let mut v = vec![];
@@ -309,7 +214,40 @@ impl InfoSet for DudoInfoSet {
     }
 }
 
-impl DudoInfoSet {
+impl DudoState {
+    pub fn new_root(player_rolls: [RollResult; 2], dice_count: i32) -> Self {
+        Self {
+            round: 0,
+            node_player_id: PlayerId::Player(0),
+            prev_winner: PlayerId::Player(0),
+            action_history: vec![],
+            player_rolls,
+            dice_count: [dice_count, dice_count],
+        }
+    }
+
+    fn update(&mut self, action: DudoAction) {
+        match action {
+            DudoAction::Claim(c) => self.update_claim(&c),
+            DudoAction::Dudo => self.update_dudo(),
+        }
+    }
+
+    fn opponent_player_id(&self, _player_id: PlayerId) -> PlayerId {
+        match self.node_player_id {
+            PlayerId::Chance => panic!(),
+            PlayerId::Player(i) => PlayerId::Player(i ^ 1),
+        }
+    }
+
+    fn update_claim(&mut self, claim: &Claim) {
+        if !self.action_history.is_empty() {
+            debug_assert_gt!(*claim, self.current_claim().unwrap());
+        }
+        self.node_player_id = self.opponent_player_id(self.node_player_id);
+        self.action_history.push(DudoAction::Claim(*claim));
+    }
+
     fn current_claim(&self) -> Option<Claim> {
         if self.action_history.is_empty() {
             return None;
@@ -320,6 +258,54 @@ impl DudoInfoSet {
             None
         }
     }
+
+    fn update_dudo(&mut self) {
+        let challenger = self.node_player_id;
+        let challenged = self.opponent_player_id(self.node_player_id);
+
+        let challenged_claim = self.current_claim().unwrap();
+
+        let actual_dice_count: i32 =
+            self.player_rolls.iter().map(|roll| roll.count_dice(challenged_claim.rank)).sum();
+        let claimed_dice_count = challenged_claim.normalized_count();
+        let loser: PlayerId;
+        match actual_dice_count.cmp(&claimed_dice_count) {
+            std::cmp::Ordering::Greater => {
+                // the actual count exceeds the challenged claim
+                // challenger loses
+                loser = challenger;
+                let diff = actual_dice_count - claimed_dice_count;
+                assert_gt!(diff, 0);
+                self.dice_count[loser.index()] = 0.max(self.dice_count[loser.index()] - diff);
+            }
+            std::cmp::Ordering::Less => {
+                // the actual count is less than the challenged claim
+                // challenger wins
+                loser = challenged;
+                let diff = claimed_dice_count - actual_dice_count;
+                assert_gt!(diff, 0);
+                self.dice_count[loser.index()] = 0.max(self.dice_count[loser.index()] - diff);
+            }
+            std::cmp::Ordering::Equal => {
+                // challenger loses
+                loser = challenger;
+                self.dice_count[loser.index()] -= 1;
+            }
+        }
+        self.prev_winner = self.opponent_player_id(loser);
+        self.action_history.clear();
+        self.round += 1;
+    }
+}
+
+#[derive(Debug, Clone, Eq, PartialOrd, Ord)]
+pub struct DudoInfoSet {
+    pub uid: u64,
+    pub round: u32,
+    pub next_player_id: PlayerId,
+    pub action_history: Vec<DudoAction>,
+    pub player_roll: RollResult,
+    pub dice_count: [i32; 2],
 }
 
 impl From<&DudoState> for DudoInfoSet {
@@ -363,9 +349,29 @@ impl std::hash::Hash for DudoInfoSet {
     }
 }
 
+impl PartialEq for DudoInfoSet {
+    fn eq(&self, other: &Self) -> bool {
+        if self.next_player_id != other.next_player_id {
+            return false;
+        }
+        if self.player_roll.count != other.player_roll.count {
+            return false;
+        }
+
+        if self.action_history.len() != other.action_history.len() {
+            return false;
+        }
+        for i in 0..self.action_history.len() {
+            if self.action_history[i] != other.action_history[i] {
+                return false;
+            }
+        }
+        true
+    }
+}
+
 impl Display for DudoInfoSet {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        // Info set
         write!(f, "{:?}", self.next_player_id)?;
         write!(f, "{:?}  ", self.player_roll.count)?;
         write!(f, "[")?;

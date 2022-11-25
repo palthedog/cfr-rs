@@ -5,10 +5,7 @@ use std::{
     fmt::Display,
 };
 
-use games::{
-    InfoSet,
-    State,
-};
+use games::State;
 use log::{
     debug,
     info,
@@ -93,12 +90,16 @@ where
 
         // avg Strategy
         let avg_strategy = self.to_average_strategy();
+
+        // TODO:
+        /*
         let actions = self.info_set.list_legal_actions();
         write!(f, " Avg Strategy[")?;
         for i in 0..actions.len() {
             write!(f, "{}: {:.03}, ", actions[i], avg_strategy[i])?;
         }
         write!(f, "]")?;
+         */
 
         // regrets
         /*
@@ -147,7 +148,8 @@ where
             self.nodes.entry(info_set.clone()).or_insert_with(|| Node::new(info_set.clone()));
         let mut node_util = [0.0f64; 2];
 
-        let actions = node.info_set.list_legal_actions();
+        // TODO: Cache actions.
+        let actions = state.list_legal_actions();
         let actions_len = actions.len();
         assert_gt!(actions_len, 0);
         debug!("CFR state: {:#?}", state);
