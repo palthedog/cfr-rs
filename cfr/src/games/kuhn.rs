@@ -29,23 +29,31 @@ impl Display for KuhnAction {
 #[derive(Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct KuhnInfoSet {
     pub player_id: PlayerId,
-    pub actions: [Option<KuhnAction>; 2],
     pub card: Card,
+    pub actions: [Option<KuhnAction>; 2],
 }
 
 impl From<&KuhnState> for KuhnInfoSet {
     fn from(state: &KuhnState) -> Self {
         KuhnInfoSet {
             player_id: state.next_player_id,
-            actions: state.actions.clone(),
             card: state.cards[state.next_player_id.index()],
+            actions: state.actions,
         }
     }
 }
 
 impl Display for KuhnInfoSet {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:?}", self)
+        write!(f, "p{}({:5}): ", self.player_id.index(), format!("{:?}", self.card))?;
+        write!(
+            f,
+            "[{:11},{:11}]",
+            format!("{:?}", self.actions[0]),
+            format!("{:?}", self.actions[1])
+        )?;
+
+        Ok(())
     }
 }
 

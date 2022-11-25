@@ -16,6 +16,7 @@ fn main() {
 
     let args = AppArgs::parse();
 
-    let mut trainer = cfr::Trainer::<games::kuhn::KuhnState>::new();
+    //let mut trainer = cfr::Trainer::<games::kuhn::KuhnState>::new();
+    let mut trainer = cfr::Trainer::<games::dudo::DudoState>::new();
     trainer.train(args.iterations);
 }

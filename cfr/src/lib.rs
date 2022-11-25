@@ -14,10 +14,6 @@ use more_asserts::{
     assert_gt,
     debug_assert_ge,
 };
-use rand::{
-    rngs::ThreadRng,
-    thread_rng,
-};
 
 use crate::games::PlayerId;
 
@@ -30,6 +26,7 @@ where
     strategy: Vec<f64>,
     strategy_sum: Vec<f64>,
 
+    actions: Vec<S::Action>,
     info_set: S::InfoSet,
 }
 
@@ -37,11 +34,13 @@ impl<S> Node<S>
 where
     S: State,
 {
-    pub fn new(info_set: S::InfoSet) -> Self {
+    pub fn new(actions: Vec<S::Action>, info_set: S::InfoSet) -> Self {
         Self {
             regret_sum: vec![],
             strategy: vec![],
             strategy_sum: vec![],
+
+            actions,
             info_set,
         }
     }
@@ -91,15 +90,11 @@ where
         // avg Strategy
         let avg_strategy = self.to_average_strategy();
 
-        // TODO:
-        /*
-        let actions = self.info_set.list_legal_actions();
         write!(f, " Avg Strategy[")?;
-        for i in 0..actions.len() {
-            write!(f, "{}: {:.03}, ", actions[i], avg_strategy[i])?;
+        for (i, act) in self.actions.iter().enumerate() {
+            write!(f, "{}: {:.03}, ", act, avg_strategy[i])?;
         }
         write!(f, "]")?;
-         */
 
         // regrets
         /*
@@ -118,7 +113,6 @@ pub struct Trainer<S>
 where
     S: State,
 {
-    rng: ThreadRng,
     nodes: HashMap<S::InfoSet, Node<S>>,
 }
 
@@ -128,7 +122,6 @@ where
 {
     pub fn new() -> Self {
         Trainer {
-            rng: thread_rng(),
             nodes: HashMap::new(),
         }
     }
@@ -144,16 +137,18 @@ where
         }
 
         let info_set = state.to_info_set();
-        let node =
-            self.nodes.entry(info_set.clone()).or_insert_with(|| Node::new(info_set.clone()));
+        let node = self.nodes.entry(info_set.clone()).or_insert_with(|| {
+            let actions = state.list_legal_actions();
+            Node::new(actions, info_set.clone())
+        });
         let mut node_util = [0.0f64; 2];
 
-        // TODO: Cache actions.
-        let actions = state.list_legal_actions();
+        // TODO: avoid cloning actions here.
+        let actions = node.actions.clone();
         let actions_len = actions.len();
         assert_gt!(actions_len, 0);
         debug!("CFR state: {:#?}", state);
-        debug!("legal actions: {:#?}", actions);
+        debug!("legal actions: {:#?}", node.actions);
 
         if node.strategy.is_empty() {
             // initialize buffers
@@ -202,19 +197,12 @@ where
         }
         info!("Training has finished");
 
-        /*
-        let mut nodes: Vec<Node<S>> = self.nodes.values().cloned().collect();
-        nodes.sort_by_key(|n| {
-            (n.info_set.actions.len(), n.info_set.actions.clone(), n.info_set.player_roll)
-        });
+        let nodes: Vec<Node<S>> = self.nodes.values().cloned().collect();
         info!("Nodes [");
         for node in nodes {
-            if node.info_set.list_legal_actions().len() > 1 {
-                info!("    {}", node);
-            }
+            info!("    {}", node);
         }
         info!("]");
-         */
 
         info!("Average game value: {}", util / iterations as f64);
     }
