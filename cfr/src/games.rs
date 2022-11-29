@@ -2,6 +2,7 @@ use rand::Rng;
 
 pub mod dudo;
 pub mod kuhn;
+pub mod leduc;
 
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub enum PlayerId {
@@ -28,7 +29,12 @@ impl PlayerId {
 }
 
 pub trait State: Clone + std::fmt::Debug {
-    type InfoSet: std::fmt::Display + std::hash::Hash + std::cmp::Eq + Clone;
+    type InfoSet: std::fmt::Display
+        + std::hash::Hash
+        + std::cmp::Eq
+        + Clone
+        + std::cmp::PartialOrd
+        + std::cmp::Ord;
     type Action: std::fmt::Display + std::fmt::Debug + Copy;
 
     fn new_root<R: Rng>(rng: &mut R) -> Self;

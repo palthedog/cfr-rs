@@ -79,6 +79,35 @@ where
     }
 }
 
+impl<S> std::cmp::Eq for Node<S> where S: State {}
+
+impl<S> std::cmp::PartialEq for Node<S>
+where
+    S: State,
+{
+    fn eq(&self, other: &Self) -> bool {
+        self.info_set.eq(&other.info_set)
+    }
+}
+
+impl<S> std::cmp::PartialOrd for Node<S>
+where
+    S: State,
+{
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.info_set.cmp(&other.info_set))
+    }
+}
+
+impl<S> std::cmp::Ord for Node<S>
+where
+    S: State,
+{
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.info_set.cmp(&other.info_set)
+    }
+}
+
 impl<S> Display for Node<S>
 where
     S: State,
@@ -197,13 +226,15 @@ where
         }
         info!("Training has finished");
 
-        let nodes: Vec<Node<S>> = self.nodes.values().cloned().collect();
+        let mut nodes: Vec<Node<S>> = self.nodes.values().cloned().collect();
+        nodes.sort();
         info!("Nodes [");
         for node in nodes {
             info!("    {}", node);
         }
         info!("]");
 
+        info!("# of infoset: {}", self.nodes.len());
         info!("Average game value: {}", util / iterations as f64);
     }
 }
