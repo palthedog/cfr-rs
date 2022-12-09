@@ -1,5 +1,6 @@
 use std::fmt::Display;
 
+use itertools::Itertools;
 use rand::seq::SliceRandom;
 
 use super::{
@@ -78,6 +79,21 @@ impl State for KuhnState {
             cards: [cards[0], cards[1]],
             pot: 2, // ante
         }
+    }
+
+    fn list_possible_root_states() -> Vec<Self> {
+        let cards = [Card::Jack, Card::Queen, Card::King];
+        let mut v = vec![];
+        for s in cards.iter().permutations(2) {
+            v.push(Self {
+                next_player_id: PlayerId::Player(0),
+                actions: [None, None],
+                cards: [*s[0], *s[1]],
+                pot: 2,
+            });
+        }
+        assert_eq!(6, v.len());
+        v
     }
 
     fn to_info_set(&self) -> Self::InfoSet {

@@ -4,6 +4,15 @@ pub mod dudo;
 pub mod kuhn;
 pub mod leduc;
 
+// TODO: Make it something like
+// ```
+// type PlayerId = usize;
+// enum PlayerType {
+//   Chance,
+//   Player(PlayerId)
+// }
+// ```
+// So that we can use raw PlayerId where there is no chance to have ChanceNode.
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub enum PlayerId {
     Chance,
@@ -29,15 +38,20 @@ impl PlayerId {
 }
 
 pub trait State: Clone + std::fmt::Debug {
-    type InfoSet: std::fmt::Display
+    type InfoSet: Clone
+        + std::fmt::Display
         + std::hash::Hash
         + std::cmp::Eq
-        + Clone
         + std::cmp::PartialOrd
         + std::cmp::Ord;
-    type Action: std::fmt::Display + std::fmt::Debug + Copy;
+    type Action: Copy + std::fmt::Display + std::fmt::Debug + std::cmp::Eq + std::hash::Hash;
 
     fn new_root<R: Rng>(rng: &mut R) -> Self;
+
+    // TODO: Implement it with a chance node. Remove it.
+    fn list_possible_root_states() -> Vec<Self> {
+        todo!();
+    }
 
     fn to_info_set(&self) -> Self::InfoSet;
 

@@ -1,3 +1,4 @@
+pub mod eval;
 pub mod games;
 
 use std::{
@@ -15,7 +16,10 @@ use more_asserts::{
     debug_assert_ge,
 };
 
-use crate::games::PlayerId;
+use crate::{
+    eval::compute_exploitability,
+    games::PlayerId,
+};
 
 #[derive(Clone)]
 pub struct Node<S>
@@ -43,6 +47,10 @@ where
             actions,
             info_set,
         }
+    }
+
+    pub fn get_actions(&self) -> &[S::Action] {
+        &self.actions
     }
 
     pub fn to_strategy(&mut self, realization_weight: f64) -> Vec<f64> {
@@ -155,6 +163,13 @@ where
         }
     }
 
+    #[cfg(test)]
+    pub fn new_with_nodes(nodes: HashMap<S::InfoSet, Node<S>>) -> Self {
+        Trainer {
+            nodes,
+        }
+    }
+
     pub fn cfr(&mut self, state: &S, actions_prob: [f64; 2]) -> [f64; 2] {
         if state.is_terminal() {
             return state.get_payouts();
@@ -219,7 +234,7 @@ where
         let mut util = 0.0;
         for i in 0..iterations {
             if i != 0 && i % 10000 == 0 {
-                info!("epoch {}: Average game value: {}", i, util / i as f64);
+                info!("epoch {:10}: exploitability: {}", i, compute_exploitability(self));
             }
             let initial = <S as State>::new_root(&mut rng);
             util += self.cfr(&initial, [1.0, 1.0])[PlayerId::Player(0).index()];
@@ -236,5 +251,6 @@ where
 
         info!("# of infoset: {}", self.nodes.len());
         info!("Average game value: {}", util / iterations as f64);
+        info!("exploitability: {}", compute_exploitability(self));
     }
 }

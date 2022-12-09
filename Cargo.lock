@@ -81,6 +81,7 @@ dependencies = [
  "clap 4.0.26",
  "criterion",
  "env_logger",
+ "itertools",
  "log",
  "more-asserts",
  "rand",
