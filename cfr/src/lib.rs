@@ -133,15 +133,6 @@ where
         }
         write!(f, "]")?;
 
-        // regrets
-        /*
-        write!(f, " Regret Sum [")?;
-        for i in 0..actions.len() {
-            write!(f, "{}: {:.08}, ", actions[i], self.regret_sum[i])?;
-        }
-        write!(f, "]")?;
-        */
-
         Ok(())
     }
 }
@@ -151,6 +142,15 @@ where
     S: State,
 {
     nodes: HashMap<S::InfoSet, Node<S>>,
+}
+
+impl<S> Default for Trainer<S>
+where
+    S: State,
+{
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl<S> Trainer<S>
@@ -220,8 +220,8 @@ where
 
         let opponent = player.opponent();
         let node = self.nodes.get_mut(&info_set).unwrap();
-        for i in 0..actions_len {
-            let regret: f64 = action_utils[i] - node_util[player.index()];
+        for (i, action_util) in action_utils.iter().enumerate() {
+            let regret: f64 = action_util - node_util[player.index()];
             let opponent_prob = actions_prob[opponent.index()];
             node.regret_sum[i] += opponent_prob * regret;
         }
