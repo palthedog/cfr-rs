@@ -4,6 +4,10 @@ pub mod games;
 use std::{
     collections::HashMap,
     fmt::Display,
+    time::{
+        Duration,
+        Instant,
+    },
 };
 
 use games::State;
@@ -73,7 +77,7 @@ where
             self.strategy_sum[i] += realization_weight * self.strategy[i];
         }
 
-        // How can I prevent cloneing the array here?
+        // How can I prevent cloning the array here?
         self.strategy.clone()
     }
 
@@ -133,6 +137,14 @@ where
         }
         write!(f, "]")?;
 
+        /*
+        write!(f, " Regret[")?;
+        for (i, regret) in self.regret_sum.iter().enumerate() {
+            write!(f, "{}: {:.03}, ", self.actions[i], regret)?;
+        }
+        write!(f, "]")?;
+        */
+
         Ok(())
     }
 }
@@ -182,8 +194,8 @@ where
             for (act, prob) in actions {
                 let next_state = state.with_action(act);
                 let mut next_actions_prob = actions_prob;
-                for i in 0..next_actions_prob.len() {
-                    next_actions_prob[i] *= prob;
+                for action_prob in &mut next_actions_prob {
+                    *action_prob *= prob;
                 }
                 let action_util = self.cfr(&next_state, next_actions_prob);
                 for (player, player_action_util) in action_util.iter().enumerate() {
@@ -214,7 +226,7 @@ where
             node.regret_sum.resize(actions_len, 0.0);
         }
 
-        let mut action_utils = vec![0.0; actions_len]; // Note: allocating array on the stack is faster.
+        let mut player_action_utils = vec![0.0; actions_len]; // Note: allocating array on the stack is faster.
         let realization_weight = actions_prob[player.index()];
         let strategy = node.to_strategy(realization_weight);
         for (i, act) in actions.iter().enumerate() {
@@ -225,15 +237,15 @@ where
             next_actions_prob[player.index()] *= action_prob;
 
             let action_util = self.cfr(&next_state, next_actions_prob);
-            action_utils[i] = action_util[player.index()];
-            for (player, player_action_util) in action_util.iter().enumerate() {
-                node_util[player] += action_prob * player_action_util;
+            player_action_utils[i] = action_util[player.index()];
+            for (player, action_util) in action_util.iter().enumerate() {
+                node_util[player] += action_prob * action_util;
             }
         }
 
         let opponent = player.opponent();
         let node = self.nodes.get_mut(&info_set).unwrap();
-        for (i, action_util) in action_utils.iter().enumerate() {
+        for (i, action_util) in player_action_utils.iter().enumerate() {
             let regret: f64 = action_util - node_util[player.index()];
             let opponent_prob = actions_prob[opponent.index()];
             node.regret_sum[i] += opponent_prob * regret;
@@ -243,14 +255,16 @@ where
     }
 
     pub fn train(&mut self, iterations: u32) {
-        let mut rng = rand::thread_rng();
         let mut util = 0.0;
+        let mut timer = Instant::now();
         for i in 0..iterations {
-            if i != 0 && i % 10000 == 0 {
-                info!("epoch {:10}: exploitability: {}", i, compute_exploitability(self));
-            }
-            let initial = <S as State>::new_root(&mut rng);
+            let initial = <S as State>::new_root();
             util += self.cfr(&initial, [1.0, 1.0])[PlayerId::Player(0).index()];
+            if timer.elapsed() > Duration::from_secs(2) {
+                info!("epoch {:10}: exploitability: {}", i, compute_exploitability(self));
+                info!("Average game value: {}", util / i as f64);
+                timer = Instant::now();
+            }
         }
         info!("Training has finished");
 

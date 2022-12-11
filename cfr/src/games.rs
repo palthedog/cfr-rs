@@ -1,8 +1,6 @@
-use rand::Rng;
-
 pub mod dudo;
 pub mod kuhn;
-pub mod leduc;
+//pub mod leduc;
 
 // TODO: Make it something like
 // ```
@@ -37,24 +35,19 @@ impl PlayerId {
     }
 }
 
-pub trait State: Clone + std::fmt::Debug {
+pub trait State:
+    Clone + std::fmt::Debug + std::hash::Hash + std::cmp::Eq + std::cmp::PartialOrd + std::cmp::Ord
+{
     type InfoSet: Clone
         + std::fmt::Display
+        + std::fmt::Debug
         + std::hash::Hash
         + std::cmp::Eq
         + std::cmp::PartialOrd
         + std::cmp::Ord;
     type Action: Copy + std::fmt::Display + std::fmt::Debug + std::cmp::Eq + std::hash::Hash;
 
-    fn new_root<R: Rng>(rng: &mut R) -> Self;
-    fn new_root2() -> Self {
-        todo!();
-    }
-
-    // TODO: Implement it with a chance node. Remove it.
-    fn list_possible_root_states() -> Vec<Self> {
-        todo!();
-    }
+    fn new_root() -> Self;
 
     fn to_info_set(&self) -> Self::InfoSet;
 

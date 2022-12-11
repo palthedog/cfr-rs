@@ -1,7 +1,6 @@
 use std::fmt::Display;
 
 use itertools::Itertools;
-use rand::seq::SliceRandom;
 
 use super::{
     PlayerId,
@@ -61,7 +60,7 @@ impl Display for KuhnInfoSet {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct KuhnState {
     pub next_player_id: PlayerId,
     pub actions: [Option<KuhnAction>; 2],
@@ -73,55 +72,13 @@ impl State for KuhnState {
     type InfoSet = KuhnInfoSet;
     type Action = KuhnAction;
 
-    fn new_root<R: rand::Rng>(rng: &mut R) -> Self {
-        /*
-               let mut cards = [Card::Jack, Card::Queen, Card::King];
-               cards.shuffle(rng);
-               Self {
-                   next_player_id: PlayerId::Player(0),
-                   actions: [None, None],
-                   cards: [cards[0], cards[1]],
-                   pot: 2, // ante
-               }
-        */
+    fn new_root() -> Self {
         Self {
             next_player_id: PlayerId::Chance,
             actions: [None, None],
             cards: [Card::Jack, Card::Jack],
             pot: 2, // ante
         }
-    }
-
-    fn new_root2() -> Self {
-        Self {
-            next_player_id: PlayerId::Chance,
-            actions: [None, None],
-            cards: [Card::Jack, Card::Jack],
-            pot: 2, // ante
-        }
-    }
-
-    fn list_possible_root_states() -> Vec<Self> {
-        /*
-                let cards = [Card::Jack, Card::Queen, Card::King];
-                let mut v = vec![];
-                for s in cards.iter().permutations(2) {
-                    v.push(Self {
-                        next_player_id: PlayerId::Player(0),
-                        actions: [None, None],
-                        cards: [*s[0], *s[1]],
-                        pot: 2,
-                    });
-                }
-                assert_eq!(6, v.len());
-                v
-        */
-        vec![Self {
-            next_player_id: PlayerId::Chance,
-            actions: [None, None],
-            cards: [Card::Jack, Card::Jack],
-            pot: 2, // ante
-        }]
     }
 
     fn to_info_set(&self) -> Self::InfoSet {
@@ -136,7 +93,7 @@ impl State for KuhnState {
         let cards = [Card::Jack, Card::Queen, Card::King];
         let mut v = vec![];
         let pairs = cards.iter().permutations(2).collect_vec();
-        let prob = 1.0 / pairs.len() as f64;
+        let prob = 1.0 / (pairs.len() as f64);
         for s in pairs {
             v.push((KuhnAction::ChanceDealCards([*s[0], *s[1]]), prob));
         }

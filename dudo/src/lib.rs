@@ -255,7 +255,7 @@ impl State {
 
         let actual_dice_count: i32 =
             self.player_rolls.iter().map(|roll| roll.count_dice(challenged_claim.rank)).sum();
-        let claimed_dice_count = challenged_claim.normalized_count();
+        let claimed_dice_count = challenged_claim.count;
         let loser: PlayerId;
         match actual_dice_count.cmp(&claimed_dice_count) {
             std::cmp::Ordering::Greater => {

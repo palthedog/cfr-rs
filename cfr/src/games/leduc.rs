@@ -233,7 +233,8 @@ impl State for LeducState {
     type InfoSet = LeducInfoSet;
     type Action = LeducAction;
 
-    fn new_root<R: rand::Rng>(rng: &mut R) -> Self {
+    fn new_root2() -> Self {
+        /*
         let bets = [1, 1];
         let mut cards = Card::get_all();
         cards.shuffle(rng);
@@ -247,6 +248,8 @@ impl State for LeducState {
             bets,
             raise_count: 0,
         }
+        */
+        todo!();
     }
 
     fn to_info_set(&self) -> Self::InfoSet {
