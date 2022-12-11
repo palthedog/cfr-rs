@@ -47,6 +47,9 @@ pub trait State: Clone + std::fmt::Debug {
     type Action: Copy + std::fmt::Display + std::fmt::Debug + std::cmp::Eq + std::hash::Hash;
 
     fn new_root<R: Rng>(rng: &mut R) -> Self;
+    fn new_root2() -> Self {
+        todo!();
+    }
 
     // TODO: Implement it with a chance node. Remove it.
     fn list_possible_root_states() -> Vec<Self> {
@@ -65,4 +68,7 @@ pub trait State: Clone + std::fmt::Debug {
     fn with_action(&self, action: Self::Action) -> Self;
 
     fn list_legal_actions(&self) -> Vec<Self::Action>;
+    fn list_legal_chance_actions(&self) -> Vec<(Self::Action, f64)> {
+        todo!();
+    }
 }

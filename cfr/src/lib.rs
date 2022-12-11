@@ -177,7 +177,20 @@ where
 
         let player = state.get_node_player_id();
         if player == PlayerId::Chance {
-            todo!();
+            let actions = state.list_legal_chance_actions();
+            let mut node_util = [0.0, 0.0];
+            for (act, prob) in actions {
+                let next_state = state.with_action(act);
+                let mut next_actions_prob = actions_prob;
+                for i in 0..next_actions_prob.len() {
+                    next_actions_prob[i] *= prob;
+                }
+                let action_util = self.cfr(&next_state, next_actions_prob);
+                for (player, player_action_util) in action_util.iter().enumerate() {
+                    node_util[player] += prob * player_action_util;
+                }
+            }
+            return node_util;
         }
 
         let info_set = state.to_info_set();

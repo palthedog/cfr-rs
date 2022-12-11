@@ -1,6 +1,9 @@
 use std::collections::HashMap;
 
-use log::debug;
+use log::{
+    debug,
+    info,
+};
 
 use crate::{
     games::{
@@ -54,8 +57,30 @@ pub fn calc_best_response_value<S: State>(
         return state.get_payouts()[br_player.index()];
     }
 
+    if state.get_node_player_id() == PlayerId::Chance {
+        let actions = state.list_legal_chance_actions();
+        let mut node_util = 0.0;
+        for (act, prob) in actions {
+            let next_state = state.with_action(act);
+            let action_util = calc_best_response_value(
+                action_utilities,
+                br_player,
+                trainer,
+                &next_state,
+                opponent_probability,
+            );
+            node_util += prob * action_util;
+        }
+        return node_util;
+    }
+
     let info_set = state.to_info_set();
-    let node = trainer.nodes.get(&info_set).unwrap();
+    let node = trainer.nodes.get(&info_set).unwrap_or_else(|| {
+        panic!(
+            "Expected to have a node corresponding to an infoset: {}, state: {:?}",
+            info_set, state
+        )
+    });
     let actions = node.get_actions();
     if state.get_node_player_id() == br_player {
         // the player plays the best response.
@@ -114,6 +139,16 @@ where
     if state.is_terminal() {
         return state.get_payouts()[player_id.index()];
     }
+    if state.get_node_player_id() == PlayerId::Chance {
+        let actions = state.list_legal_chance_actions();
+        let mut node_util = 0.0;
+        for (act, prob) in actions {
+            let next_state = state.with_action(act);
+            let action_util = calc_expected_value(player_id, strategy0, strategy1, &next_state);
+            node_util += prob * action_util;
+        }
+        return node_util;
+    }
     let info_set = state.to_info_set();
     let strategy = match state.get_node_player_id() {
         PlayerId::Player(0) => strategy0.get_strategy(&info_set),
@@ -134,6 +169,7 @@ where
 
 pub fn compute_exploitability<S: State>(trainer: &Trainer<S>) -> f64 {
     // TODO: do this by chance node...
+    /*
     let all_root_states = S::list_possible_root_states();
     let mut br0: HashMap<S::InfoSet, Vec<f64>> = HashMap::new();
     let mut br1: HashMap<S::InfoSet, Vec<f64>> = HashMap::new();
@@ -141,14 +177,17 @@ pub fn compute_exploitability<S: State>(trainer: &Trainer<S>) -> f64 {
         calc_best_response_value(&mut br0, PlayerId::Player(0), trainer, &s, 1.0);
         calc_best_response_value(&mut br1, PlayerId::Player(1), trainer, &s, 1.0);
     }
+     */
+    let root_state = S::new_root2();
+    let mut br0: HashMap<S::InfoSet, Vec<f64>> = HashMap::new();
+    let mut br1: HashMap<S::InfoSet, Vec<f64>> = HashMap::new();
+    calc_best_response_value(&mut br0, PlayerId::Player(0), trainer, &root_state, 1.0);
+    calc_best_response_value(&mut br1, PlayerId::Player(1), trainer, &root_state, 1.0);
 
-    let mut exploitability = 0.0;
-    for s in all_root_states.iter() {
-        let ev_0 = calc_expected_value(PlayerId::Player(0), trainer, &br1, s);
-        let ev_1 = calc_expected_value(PlayerId::Player(1), &br0, trainer, s);
-        debug!("{:?}: ev0: {} ev1:{}", s, ev_0, ev_1);
-        exploitability += (ev_0 + ev_1) / all_root_states.len() as f64;
-    }
+    let ev_0 = calc_expected_value(PlayerId::Player(0), trainer, &br1, &root_state);
+    let ev_1 = calc_expected_value(PlayerId::Player(1), &br0, trainer, &root_state);
+    debug!("{:?}: ev0: {} ev1:{}", root_state, ev_0, ev_1);
+    let exploitability = ev_0 + ev_1;
     exploitability
 }
 
