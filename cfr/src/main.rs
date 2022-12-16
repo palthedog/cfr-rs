@@ -1,11 +1,27 @@
-use clap::Parser;
+use clap::{
+    Parser,
+    ValueEnum,
+};
 
-use cfr::games;
+use cfr::{
+    games,
+    TrainingArgs,
+};
 
 #[derive(Parser)]
-pub struct AppArgs {
-    #[clap(long, short, value_parser, default_value_t = 1000)]
-    iterations: u32,
+struct AppArgs {
+    #[clap(long, short, value_enum)]
+    game: Game,
+
+    #[clap(flatten)]
+    training_args: TrainingArgs,
+}
+
+#[derive(Debug, Clone, Copy, ValueEnum)]
+pub enum Game {
+    Kuhn,
+    Dudo,
+    Leduc,
 }
 
 fn main() {
@@ -16,8 +32,18 @@ fn main() {
 
     let args = AppArgs::parse();
 
-    //let mut trainer = cfr::Trainer::<games::kuhn::KuhnState>::new();
-    //let mut trainer = cfr::Trainer::<games::dudo::DudoState>::new();
-    let mut trainer = cfr::Trainer::<games::leduc::LeducState>::new();
-    trainer.train(args.iterations);
+    match args.game {
+        Game::Kuhn => {
+            let mut trainer = cfr::Trainer::<games::kuhn::KuhnState>::new();
+            trainer.train(&args.training_args);
+        }
+        Game::Dudo => {
+            let mut trainer = cfr::Trainer::<games::dudo::DudoState>::new();
+            trainer.train(&args.training_args);
+        }
+        Game::Leduc => {
+            let mut trainer = cfr::Trainer::<games::leduc::LeducState>::new();
+            trainer.train(&args.training_args);
+        }
+    };
 }

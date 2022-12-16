@@ -4,12 +4,17 @@ pub mod games;
 use std::{
     collections::HashMap,
     fmt::Display,
+    path::PathBuf,
     time::{
         Duration,
         Instant,
     },
 };
 
+use clap::{
+    Args,
+    ValueHint,
+};
 use games::State;
 use log::{
     debug,
@@ -24,6 +29,15 @@ use crate::{
     eval::compute_exploitability,
     games::PlayerId,
 };
+
+#[derive(Args)]
+pub struct TrainingArgs {
+    #[clap(long, short, value_parser, default_value_t = 1000)]
+    iterations: usize,
+
+    #[clap(long, short, value_parser, value_hint(ValueHint::FilePath))]
+    log_path: Option<PathBuf>,
+}
 
 #[derive(Clone)]
 pub struct Node<S>
@@ -254,10 +268,10 @@ where
         node_util
     }
 
-    pub fn train(&mut self, iterations: u32) {
+    pub fn train(&mut self, args: &TrainingArgs) {
         let mut util = 0.0;
         let mut timer = Instant::now();
-        for i in 0..iterations {
+        for i in 0..args.iterations {
             let initial = <S as State>::new_root();
             util += self.cfr(&initial, [1.0, 1.0])[PlayerId::Player(0).index()];
             if timer.elapsed() > Duration::from_secs(2) {
@@ -277,7 +291,7 @@ where
         info!("]");
 
         info!("# of infoset: {}", self.nodes.len());
-        info!("Average game value: {}", util / iterations as f64);
+        info!("Average game value: {}", util / args.iterations as f64);
         info!("exploitability: {}", compute_exploitability(self));
     }
 }
