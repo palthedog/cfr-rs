@@ -1,6 +1,6 @@
 pub mod dudo;
 pub mod kuhn;
-//pub mod leduc;
+pub mod leduc;
 
 // TODO: Make it something like
 // ```

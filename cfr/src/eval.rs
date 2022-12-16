@@ -275,7 +275,7 @@ pub fn compute_exploitability<S: State>(trainer: &Trainer<S>) -> f64 {
     info!("Calculating best response for player 1");
     let br1 =
         calc_best_response_value(&mut brmap1, &rp1, PlayerId::Player(1), trainer, &root_state);
-    info!("br0: {}, br1: {}", br0, br1);
+    info!("util_0(br0): {}, util_1(br1): {}", br0, br1);
 
     if log::log_enabled!(log::Level::Debug) {
         debug!("Best responses for Player0");
@@ -301,8 +301,8 @@ pub fn compute_exploitability<S: State>(trainer: &Trainer<S>) -> f64 {
     let ev_0 = calc_expected_value(PlayerId::Player(1), trainer, &brmap1, &root_state);
     let ev_1 = calc_expected_value(PlayerId::Player(0), &brmap0, trainer, &root_state);
 
-    info!("ev0: {} ev1: {}", ev_0, ev_1);
-    let exploitability = ev_0 + ev_1;
+    info!("util_1(s0, s_br1): {} util_0(s_br0, s1): {}", ev_0, ev_1);
+    let exploitability = (ev_0 + ev_1) / 2.0;
     assert_ge!(exploitability, 0.0, "Exploitability must be positive value.");
     exploitability
 }
