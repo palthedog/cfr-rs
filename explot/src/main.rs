@@ -65,15 +65,20 @@ fn plot_dir(dir: &DirEntry) -> Result<(), Box<dyn std::error::Error>> {
         .y_label_area_size(60)
         .build_cartesian_2d(xr.0..xr.1, (yr.0..yr.1).log_scale())?;
 
-    chart
-        .configure_mesh()
-        .y_desc("Exploitability")
+    let mut cfg = chart.configure_mesh();
+    cfg.y_desc("Exploitability")
         .y_label_formatter(&|y| format!("{:.1e}", y))
-        .y_label_style(("sans-serif", 18).into_font())
-        .x_desc("Elapsed Time (mins)")
-        .x_label_formatter(&|x| format!("{}", x / 60))
-        .x_label_style(("sans-serif", 18).into_font())
-        .draw()?;
+        .y_label_style(("sans-serif", 18).into_font());
+    let cfg = if xr.1 > 600 {
+        cfg.x_desc("Elapsed Time (mins)")
+            .x_label_formatter(&|x| format!("{}", x / 60))
+            .x_label_style(("sans-serif", 18).into_font())
+    } else {
+        cfg.x_desc("Elapsed Time (seconds)")
+            .x_label_formatter(&|x| format!("{}", x))
+            .x_label_style(("sans-serif", 18).into_font())
+    };
+    cfg.draw()?;
 
     for (i, (name, log)) in logs.iter().enumerate() {
         let color = Palette99::pick(i).mix(0.8);
