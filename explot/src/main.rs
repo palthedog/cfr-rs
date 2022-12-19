@@ -48,7 +48,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 fn plot_dir(dir: &DirEntry) -> Result<(), Box<dyn std::error::Error>> {
     let img_path = Path::new("graphs/").join(dir.file_name()).with_extension("svg");
-    //let root_area = BitMapBackend::new(&png_path, (1280, 960)).into_drawing_area();
     let root_area = SVGBackend::new(&img_path, (1000, 800)).into_drawing_area();
     root_area.fill(&WHITE)?;
 
