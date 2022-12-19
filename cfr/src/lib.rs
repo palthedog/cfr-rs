@@ -4,6 +4,11 @@ pub mod games;
 use std::{
     collections::HashMap,
     fmt::Display,
+    fs::File,
+    io::{
+        BufWriter,
+        Write,
+    },
     path::PathBuf,
     time::{
         Duration,
@@ -269,14 +274,34 @@ where
     }
 
     pub fn train(&mut self, args: &TrainingArgs) {
+        let mut log_writer = if let Some(path) = &args.log_path {
+            let f = File::create(path).unwrap_or_else(|err| {
+                panic!("Failed to create a file: {:?}, {}", path, err);
+            });
+            let mut w = BufWriter::new(f);
+            writeln!(w, "epoch,elapsed_seconds,exploitability").expect("Failed to write");
+            Some(w)
+        } else {
+            None
+        };
+
         let mut util = 0.0;
+        let start_t = Instant::now();
         let mut timer = Instant::now();
         for i in 0..args.iterations {
             let initial = <S as State>::new_root();
             util += self.cfr(&initial, [1.0, 1.0])[PlayerId::Player(0).index()];
-            if timer.elapsed() > Duration::from_secs(2) {
+            if timer.elapsed() > Duration::from_secs(5) {
+                let exploitability = compute_exploitability(self);
                 info!("epoch {:10}: exploitability: {}", i, compute_exploitability(self));
                 info!("Average game value: {}", util / i as f64);
+
+                if let Some(w) = &mut log_writer {
+                    writeln!(w, "{},{},{:.12}", i, start_t.elapsed().as_secs(), exploitability)
+                        .expect("Failed to write");
+                    w.flush().expect("Failed to flush");
+                }
+
                 timer = Instant::now();
             }
         }

@@ -1,5 +1,4 @@
 /target/
-/logs/
 /gen/*
 /data/*
 !/gen/README
