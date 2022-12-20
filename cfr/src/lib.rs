@@ -1,9 +1,9 @@
 pub mod eval;
 pub mod games;
+pub mod node;
 
 use std::{
     collections::HashMap,
-    fmt::Display,
     fs::File,
     io::{
         BufWriter,
@@ -25,10 +25,8 @@ use log::{
     debug,
     info,
 };
-use more_asserts::{
-    assert_gt,
-    debug_assert_ge,
-};
+use more_asserts::assert_gt;
+use node::Node;
 
 use crate::{
     eval::compute_exploitability,
@@ -44,127 +42,12 @@ pub struct TrainingArgs {
     log_path: Option<PathBuf>,
 }
 
-#[derive(Clone)]
-pub struct Node<S>
-where
-    S: State,
-{
-    regret_sum: Vec<f64>,
-    strategy: Vec<f64>,
-    strategy_sum: Vec<f64>,
-
-    actions: Vec<S::Action>,
-    info_set: S::InfoSet,
-}
-
-impl<S> Node<S>
-where
-    S: State,
-{
-    pub fn new(actions: Vec<S::Action>, info_set: S::InfoSet) -> Self {
-        Self {
-            regret_sum: vec![],
-            strategy: vec![],
-            strategy_sum: vec![],
-
-            actions,
-            info_set,
+impl TrainingArgs {
+    pub fn new(iterations: usize) -> Self {
+        TrainingArgs {
+            iterations,
+            log_path: None,
         }
-    }
-
-    pub fn get_actions(&self) -> &[S::Action] {
-        &self.actions
-    }
-
-    pub fn to_strategy(&mut self, realization_weight: f64) -> Vec<f64> {
-        let normalizing_sum: f64 = self.regret_sum.iter().filter(|v| **v >= 0.0).sum();
-        let actions_len = self.strategy.len();
-        if normalizing_sum == 0.0 {
-            self.strategy = vec![1.0 / actions_len as f64; actions_len];
-        } else {
-            for (i, reg) in self.regret_sum.iter().enumerate() {
-                self.strategy[i] = if *reg >= 0.0 {
-                    *reg / normalizing_sum
-                } else {
-                    0.0
-                };
-            }
-        };
-
-        for i in 0..actions_len {
-            debug_assert_ge!(self.strategy[i], 0.0);
-            self.strategy_sum[i] += realization_weight * self.strategy[i];
-        }
-
-        // How can I prevent cloning the array here?
-        self.strategy.clone()
-    }
-
-    pub fn to_average_strategy(&self) -> Vec<f64> {
-        let normalizing_sum: f64 = self.strategy_sum.iter().sum();
-        if normalizing_sum == 0.0 {
-            let actions_len = self.strategy.len();
-            return vec![1.0 / actions_len as f64; actions_len];
-        }
-        self.strategy_sum.iter().map(|s| s / normalizing_sum).collect()
-    }
-}
-
-impl<S> std::cmp::Eq for Node<S> where S: State {}
-
-impl<S> std::cmp::PartialEq for Node<S>
-where
-    S: State,
-{
-    fn eq(&self, other: &Self) -> bool {
-        self.info_set.eq(&other.info_set)
-    }
-}
-
-impl<S> std::cmp::PartialOrd for Node<S>
-where
-    S: State,
-{
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        Some(self.info_set.cmp(&other.info_set))
-    }
-}
-
-impl<S> std::cmp::Ord for Node<S>
-where
-    S: State,
-{
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.info_set.cmp(&other.info_set)
-    }
-}
-
-impl<S> Display for Node<S>
-where
-    S: State,
-{
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        // Info set
-        write!(f, "{}", self.info_set)?;
-
-        // avg Strategy
-        let avg_strategy = self.to_average_strategy();
-
-        write!(f, " Avg Strategy[")?;
-        for (i, act) in self.actions.iter().enumerate() {
-            write!(f, "{}: {:.03}, ", act, avg_strategy[i])?;
-        }
-        write!(f, "]")?;
-
-        /*
-        write!(f, " Regret[")?;
-        for (i, regret) in self.regret_sum.iter().enumerate() {
-            write!(f, "{}: {:.03}, ", self.actions[i], regret)?;
-        }
-        write!(f, "]")?;
-        */
-
-        Ok(())
     }
 }
 
@@ -231,19 +114,11 @@ where
         });
         let mut node_util = [0.0f64; 2];
 
-        // TODO: avoid cloning actions here.
-        let actions = node.actions.clone();
+        let actions = node.get_actions();
         let actions_len = actions.len();
         assert_gt!(actions_len, 0);
         debug!("CFR state: {:#?}", state);
-        debug!("legal actions: {:#?}", node.actions);
-
-        if node.strategy.is_empty() {
-            // initialize buffers
-            node.strategy.resize(actions_len, 0.0);
-            node.strategy_sum.resize(actions_len, 0.0);
-            node.regret_sum.resize(actions_len, 0.0);
-        }
+        debug!("legal actions: {:#?}", node.get_actions());
 
         let mut player_action_utils = vec![0.0; actions_len]; // Note: allocating array on the stack is faster.
         let realization_weight = actions_prob[player.index()];
@@ -267,7 +142,7 @@ where
         for (i, action_util) in player_action_utils.iter().enumerate() {
             let regret: f64 = action_util - node_util[player.index()];
             let opponent_prob = actions_prob[opponent.index()];
-            node.regret_sum[i] += opponent_prob * regret;
+            node.add_regret_sum(i, regret, opponent_prob);
         }
 
         node_util
@@ -307,7 +182,7 @@ where
         }
         info!("Training has finished");
 
-        let mut nodes: Vec<Node<S>> = self.nodes.values().cloned().collect();
+        let mut nodes: Vec<&Node<S>> = self.nodes.values().collect();
         nodes.sort();
         info!("Nodes [");
         for node in nodes {
