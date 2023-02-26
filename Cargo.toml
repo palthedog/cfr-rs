@@ -1,6 +1,7 @@
 [workspace]
 members = [
     "cfr",
+    "mccfr_external_sampling",
     "rps",
     "blotto",
     "kuhn",
@@ -8,7 +9,7 @@ members = [
     "explot"
 ]
 default-members = [
-    "cfr",
+    "mccfr_external_sampling",
 ]
 
 [profile.release]
