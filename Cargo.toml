@@ -1,11 +1,10 @@
 [workspace]
 members = [
     "cfr",
-    "mccfr_external_sampling",
     "explot"
 ]
 default-members = [
-    "mccfr_external_sampling",
+    "cfr",
 ]
 
 [profile.release]

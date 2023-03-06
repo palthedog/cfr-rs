@@ -6,7 +6,7 @@ use clap::{
 
 use cfr::{
     games,
-    solvers::{self,},
+    solvers,
 };
 
 #[derive(Parser)]
@@ -21,6 +21,7 @@ struct AppArgs {
 #[derive(Subcommand)]
 pub enum Solver {
     Cfr(solvers::cfr::TrainingArgs),
+    MccfrExternalSampling(solvers::mccfr_external_sampling::TrainingArgs),
 }
 
 #[derive(Debug, Clone, Copy, ValueEnum)]
@@ -51,6 +52,28 @@ fn main() {
                 Game::Leduc => {
                     let mut trainer = solvers::cfr::Trainer::<games::leduc::LeducState>::new();
                     trainer.train(&solver_args);
+                }
+            };
+        }
+        Solver::MccfrExternalSampling(solver_args) => {
+            match args.game {
+                Game::Kuhn => {
+                    let mut trainer = solvers::mccfr_external_sampling::Trainer::<
+                        games::kuhn::KuhnState,
+                    >::new(solver_args);
+                    trainer.train();
+                }
+                Game::Dudo => {
+                    let mut trainer = solvers::mccfr_external_sampling::Trainer::<
+                        games::dudo::DudoState,
+                    >::new(solver_args);
+                    trainer.train();
+                }
+                Game::Leduc => {
+                    let mut trainer = solvers::mccfr_external_sampling::Trainer::<
+                        games::leduc::LeducState,
+                    >::new(solver_args);
+                    trainer.train();
                 }
             };
         }

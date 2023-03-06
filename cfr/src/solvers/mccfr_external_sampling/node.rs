@@ -1,4 +1,4 @@
-use cfr::games::State;
+use crate::games::State;
 
 pub struct Node<S>
 where

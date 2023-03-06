@@ -1,4 +1,4 @@
-use cfr::games::{
+use crate::games::{
     PlayerId,
     State,
 };
@@ -28,7 +28,7 @@ use std::{
     },
 };
 
-use crate::node::Node;
+use super::node::Node;
 
 #[derive(Args)]
 pub struct TrainingArgs {
