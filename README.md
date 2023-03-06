@@ -1,4 +1,4 @@
-# Counterfactual Regret Minimization playground written in Rust
+# A Counterfactual Regret Minimization (CFR) playground written in Rust
 
 ## Reference: An Introduction to Counterfactual Regret Minimization
 http://modelai.gettysburg.edu/2013/cfr/cfr.pdf
