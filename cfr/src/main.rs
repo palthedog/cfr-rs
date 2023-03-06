@@ -1,11 +1,12 @@
 use clap::{
     Parser,
+    Subcommand,
     ValueEnum,
 };
 
 use cfr::{
     games,
-    TrainingArgs,
+    solvers::{self,},
 };
 
 #[derive(Parser)]
@@ -13,8 +14,13 @@ struct AppArgs {
     #[clap(long, short, value_enum)]
     game: Game,
 
-    #[clap(flatten)]
-    training_args: TrainingArgs,
+    #[clap(subcommand)]
+    solver: Solver,
+}
+
+#[derive(Subcommand)]
+pub enum Solver {
+    Cfr(solvers::cfr::TrainingArgs),
 }
 
 #[derive(Debug, Clone, Copy, ValueEnum)]
@@ -31,19 +37,22 @@ fn main() {
     );
 
     let args = AppArgs::parse();
-
-    match args.game {
-        Game::Kuhn => {
-            let mut trainer = cfr::Trainer::<games::kuhn::KuhnState>::new();
-            trainer.train(&args.training_args);
+    match args.solver {
+        Solver::Cfr(solver_args) => {
+            match args.game {
+                Game::Kuhn => {
+                    let mut trainer = solvers::cfr::Trainer::<games::kuhn::KuhnState>::new();
+                    trainer.train(&solver_args);
+                }
+                Game::Dudo => {
+                    let mut trainer = solvers::cfr::Trainer::<games::dudo::DudoState>::new();
+                    trainer.train(&solver_args);
+                }
+                Game::Leduc => {
+                    let mut trainer = solvers::cfr::Trainer::<games::leduc::LeducState>::new();
+                    trainer.train(&solver_args);
+                }
+            };
         }
-        Game::Dudo => {
-            let mut trainer = cfr::Trainer::<games::dudo::DudoState>::new();
-            trainer.train(&args.training_args);
-        }
-        Game::Leduc => {
-            let mut trainer = cfr::Trainer::<games::leduc::LeducState>::new();
-            trainer.train(&args.training_args);
-        }
-    };
+    }
 }

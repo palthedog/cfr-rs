@@ -2,10 +2,6 @@
 members = [
     "cfr",
     "mccfr_external_sampling",
-    "rps",
-    "blotto",
-    "kuhn",
-    "dudo",
     "explot"
 ]
 default-members = [
