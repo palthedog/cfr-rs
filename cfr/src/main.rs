@@ -5,8 +5,16 @@ use clap::{
 };
 
 use cfr::{
-    games,
-    solvers,
+    games::{
+        dudo::DudoState,
+        kuhn::KuhnState,
+        leduc::LeducState,
+        State,
+    },
+    solvers::{
+        self,
+        Solver,
+    },
 };
 
 #[derive(Parser)]
@@ -15,11 +23,11 @@ struct AppArgs {
     game: Game,
 
     #[clap(subcommand)]
-    solver: Solver,
+    solver: SolverArg,
 }
 
 #[derive(Subcommand)]
-pub enum Solver {
+pub enum SolverArg {
     Cfr(solvers::cfr::TrainingArgs),
     MccfrExternalSampling(solvers::mccfr_external_sampling::TrainingArgs),
 }
@@ -31,6 +39,25 @@ pub enum Game {
     Leduc,
 }
 
+fn run<G, S>(args: S::SolverArgs)
+where
+    G: State,
+    S: Solver<G>,
+{
+    let mut trainer = S::new(args);
+    trainer.train();
+}
+
+macro_rules! def_solver {
+    ($solver_t: ty, $game: expr, $($solver_args:expr),+) => {
+        match $game {
+            Game::Kuhn => run::<KuhnState, $solver_t>($($solver_args),+),
+            Game::Dudo => run::<DudoState, $solver_t>($($solver_args),+),
+            Game::Leduc => run::<LeducState, $solver_t>($($solver_args),+),
+        };
+    };
+}
+
 fn main() {
     // Initialize env_logger with a default log level of INFO.
     env_logger::init_from_env(
@@ -39,43 +66,11 @@ fn main() {
 
     let args = AppArgs::parse();
     match args.solver {
-        Solver::Cfr(solver_args) => {
-            match args.game {
-                Game::Kuhn => {
-                    let mut trainer = solvers::cfr::Trainer::<games::kuhn::KuhnState>::new();
-                    trainer.train(&solver_args);
-                }
-                Game::Dudo => {
-                    let mut trainer = solvers::cfr::Trainer::<games::dudo::DudoState>::new();
-                    trainer.train(&solver_args);
-                }
-                Game::Leduc => {
-                    let mut trainer = solvers::cfr::Trainer::<games::leduc::LeducState>::new();
-                    trainer.train(&solver_args);
-                }
-            };
+        SolverArg::Cfr(solver_args) => {
+            def_solver!(solvers::cfr::Trainer<_>, args.game, solver_args);
         }
-        Solver::MccfrExternalSampling(solver_args) => {
-            match args.game {
-                Game::Kuhn => {
-                    let mut trainer = solvers::mccfr_external_sampling::Trainer::<
-                        games::kuhn::KuhnState,
-                    >::new(solver_args);
-                    trainer.train();
-                }
-                Game::Dudo => {
-                    let mut trainer = solvers::mccfr_external_sampling::Trainer::<
-                        games::dudo::DudoState,
-                    >::new(solver_args);
-                    trainer.train();
-                }
-                Game::Leduc => {
-                    let mut trainer = solvers::mccfr_external_sampling::Trainer::<
-                        games::leduc::LeducState,
-                    >::new(solver_args);
-                    trainer.train();
-                }
-            };
+        SolverArg::MccfrExternalSampling(solver_args) => {
+            def_solver!(solvers::mccfr_external_sampling::Trainer::<_>, args.game, solver_args);
         }
     }
 }

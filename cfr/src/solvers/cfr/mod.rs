@@ -36,6 +36,8 @@ use crate::{
     games::PlayerId,
 };
 
+use super::Solver;
+
 #[derive(Args)]
 pub struct TrainingArgs {
     #[clap(long, short, value_parser, default_value_t = 1000)]
@@ -58,31 +60,18 @@ pub struct Trainer<S>
 where
     S: State,
 {
+    args: TrainingArgs,
     nodes: HashMap<S::InfoSet, Node<S>>,
-}
-
-impl<S> Default for Trainer<S>
-where
-    S: State,
-{
-    fn default() -> Self {
-        Self::new()
-    }
 }
 
 impl<S> Trainer<S>
 where
     S: State,
 {
-    pub fn new() -> Self {
-        Trainer {
-            nodes: HashMap::new(),
-        }
-    }
-
     #[cfg(test)]
-    pub fn new_with_nodes(nodes: HashMap<S::InfoSet, Node<S>>) -> Self {
+    pub fn new_with_nodes(args: TrainingArgs, nodes: HashMap<S::InfoSet, Node<S>>) -> Self {
         Trainer {
+            args,
             nodes,
         }
     }
@@ -151,8 +140,8 @@ where
         node_util
     }
 
-    pub fn train(&mut self, args: &TrainingArgs) {
-        let mut log_writer = if let Some(path) = &args.log_path {
+    pub fn train_impl(&mut self) {
+        let mut log_writer = if let Some(path) = &self.args.log_path {
             let f = File::create(path).unwrap_or_else(|err| {
                 panic!("Failed to create a file: {:?}, {}", path, err);
             });
@@ -166,7 +155,7 @@ where
         let mut util = 0.0;
         let start_t = Instant::now();
         let mut timer = Instant::now();
-        for i in 0..args.iterations {
+        for i in 0..self.args.iterations {
             let initial = <S as State>::new_root();
             util += self.cfr(&initial, [1.0, 1.0])[PlayerId::Player(0).index()];
             if timer.elapsed() > Duration::from_secs(5) {
@@ -194,7 +183,7 @@ where
         info!("]");
 
         info!("# of infoset: {}", self.nodes.len());
-        info!("Average game value: {}", util / args.iterations as f64);
+        info!("Average game value: {}", util / self.args.iterations as f64);
         info!("exploitability: {}", compute_exploitability(self));
     }
 }
@@ -202,5 +191,20 @@ where
 impl<S: State> Strategy<S> for Trainer<S> {
     fn get_strategy(&self, info_set: &<S as State>::InfoSet) -> Vec<f64> {
         self.nodes.get(info_set).unwrap().to_average_strategy()
+    }
+}
+
+impl<G: State> Solver<G> for Trainer<G> {
+    type SolverArgs = TrainingArgs;
+
+    fn new(args: Self::SolverArgs) -> Self {
+        Trainer {
+            args,
+            nodes: HashMap::new(),
+        }
+    }
+
+    fn train(&mut self) {
+        self.train_impl();
     }
 }

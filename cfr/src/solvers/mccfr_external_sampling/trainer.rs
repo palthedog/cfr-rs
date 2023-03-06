@@ -1,6 +1,9 @@
-use crate::games::{
-    PlayerId,
-    State,
+use crate::{
+    games::{
+        PlayerId,
+        State,
+    },
+    solvers::Solver,
 };
 use clap::{
     Args,
@@ -55,15 +58,7 @@ impl<S> Trainer<S>
 where
     S: State,
 {
-    pub fn new(args: TrainingArgs) -> Self {
-        Self {
-            nodes: Rc::new(RefCell::new(HashMap::new())),
-            rng: WyRng::seed_from_u64(args.seed),
-            args,
-        }
-    }
-
-    pub fn train(&mut self) {
+    pub fn train_impl(&mut self) {
         let log_per_secs = 5;
         let mut timer = Instant::now().checked_sub(Duration::from_secs(log_per_secs * 2)).unwrap();
         let initial = <S as State>::new_root();
@@ -169,5 +164,21 @@ where
             panic!("Invalid weights: e: {} probs: {:?}", e, probs);
         });
         dist.sample(&mut self.rng)
+    }
+}
+
+impl<G: State> Solver<G> for Trainer<G> {
+    type SolverArgs = TrainingArgs;
+
+    fn new(args: Self::SolverArgs) -> Self {
+        Trainer {
+            rng: WyRng::seed_from_u64(args.seed),
+            nodes: Rc::new(RefCell::new(HashMap::new())),
+            args,
+        }
+    }
+
+    fn train(&mut self) {
+        self.train_impl();
     }
 }
