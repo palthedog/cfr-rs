@@ -1,29 +1,12 @@
 pub mod node;
 
-use std::{
-    collections::HashMap,
-    fs::File,
-    io::{
-        BufWriter,
-        Write,
-    },
-    time::{
-        Duration,
-        Instant,
-    },
-};
-
-use std::path::PathBuf;
-
-use clap::{
-    Args,
-    ValueHint,
-};
+use std::collections::HashMap;
 
 use crate::{
     eval::Strategy,
     games::State,
 };
+use clap::Args;
 use log::{
     debug,
     info,
@@ -31,36 +14,17 @@ use log::{
 use more_asserts::assert_gt;
 use node::Node;
 
-use crate::{
-    eval::compute_exploitability,
-    games::PlayerId,
-};
+use crate::games::PlayerId;
 
 use super::Solver;
 
 #[derive(Args)]
-pub struct TrainingArgs {
-    #[clap(long, short, value_parser, default_value_t = 1000)]
-    iterations: usize,
-
-    #[clap(long, short, value_parser, value_hint(ValueHint::FilePath))]
-    log_path: Option<PathBuf>,
-}
-
-impl TrainingArgs {
-    pub fn new(iterations: usize) -> Self {
-        TrainingArgs {
-            iterations,
-            log_path: None,
-        }
-    }
-}
+pub struct SolverArgs {}
 
 pub struct Trainer<S>
 where
     S: State,
 {
-    args: TrainingArgs,
     nodes: HashMap<S::InfoSet, Node<S>>,
 }
 
@@ -69,9 +33,8 @@ where
     S: State,
 {
     #[cfg(test)]
-    pub fn new_with_nodes(args: TrainingArgs, nodes: HashMap<S::InfoSet, Node<S>>) -> Self {
+    pub fn new_with_nodes(_args: SolverArgs, nodes: HashMap<S::InfoSet, Node<S>>) -> Self {
         Trainer {
-            args,
             nodes,
         }
     }
@@ -140,40 +103,12 @@ where
         node_util
     }
 
-    pub fn train_impl(&mut self) {
-        let mut log_writer = if let Some(path) = &self.args.log_path {
-            let f = File::create(path).unwrap_or_else(|err| {
-                panic!("Failed to create a file: {:?}, {}", path, err);
-            });
-            let mut w = BufWriter::new(f);
-            writeln!(w, "epoch,elapsed_seconds,exploitability").expect("Failed to write");
-            Some(w)
-        } else {
-            None
-        };
+    fn train_one_epoch(&mut self) -> f64 {
+        let initial = <S as State>::new_root();
+        self.cfr(&initial, [1.0, 1.0])[PlayerId::Player(0).index()]
+    }
 
-        let mut util = 0.0;
-        let start_t = Instant::now();
-        let mut timer = Instant::now();
-        for i in 0..self.args.iterations {
-            let initial = <S as State>::new_root();
-            util += self.cfr(&initial, [1.0, 1.0])[PlayerId::Player(0).index()];
-            if timer.elapsed() > Duration::from_secs(5) {
-                let exploitability = compute_exploitability(self);
-                info!("epoch {:10}: exploitability: {}", i, compute_exploitability(self));
-                info!("Average game value: {}", util / i as f64);
-
-                if let Some(w) = &mut log_writer {
-                    writeln!(w, "{},{},{:.12}", i, start_t.elapsed().as_secs(), exploitability)
-                        .expect("Failed to write");
-                    w.flush().expect("Failed to flush");
-                }
-
-                timer = Instant::now();
-            }
-        }
-        info!("Training has finished");
-
+    fn print_nodes(&self) {
         let mut nodes: Vec<&Node<S>> = self.nodes.values().collect();
         nodes.sort();
         info!("Nodes [");
@@ -181,10 +116,6 @@ where
             info!("    {}", node);
         }
         info!("]");
-
-        info!("# of infoset: {}", self.nodes.len());
-        info!("Average game value: {}", util / self.args.iterations as f64);
-        info!("exploitability: {}", compute_exploitability(self));
     }
 }
 
@@ -195,16 +126,19 @@ impl<S: State> Strategy<S> for Trainer<S> {
 }
 
 impl<G: State> Solver<G> for Trainer<G> {
-    type SolverArgs = TrainingArgs;
+    type SolverArgs = SolverArgs;
 
-    fn new(args: Self::SolverArgs) -> Self {
+    fn new(_args: Self::SolverArgs) -> Self {
         Trainer {
-            args,
             nodes: HashMap::new(),
         }
     }
 
-    fn train(&mut self) {
-        self.train_impl();
+    fn train_one_epoch(&mut self) -> f64 {
+        self.train_one_epoch()
+    }
+
+    fn print_strategy(&self) {
+        self.print_nodes();
     }
 }

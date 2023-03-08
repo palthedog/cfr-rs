@@ -1,10 +1,26 @@
+use std::{
+    fs::File,
+    io::{
+        BufWriter,
+        Write,
+    },
+    path::PathBuf,
+    time::{
+        Duration,
+        Instant,
+    },
+};
+
 use clap::{
+    Args,
     Parser,
     Subcommand,
     ValueEnum,
+    ValueHint,
 };
 
 use cfr::{
+    eval::compute_exploitability,
     games::{
         dudo::DudoState,
         kuhn::KuhnState,
@@ -16,19 +32,32 @@ use cfr::{
         Solver,
     },
 };
+use log::info;
 
 #[derive(Parser)]
 struct AppArgs {
     #[clap(long, short, value_enum)]
     game: Game,
 
+    #[clap(flatten)]
+    training_args: TrainingArgs,
+
     #[clap(subcommand)]
     solver: SolverArg,
 }
 
+#[derive(Args)]
+struct TrainingArgs {
+    #[clap(long, short, value_parser, default_value_t = 1000)]
+    iterations: usize,
+
+    #[clap(long, short, value_parser, value_hint(ValueHint::FilePath))]
+    log_path: Option<PathBuf>,
+}
+
 #[derive(Subcommand)]
 pub enum SolverArg {
-    Cfr(solvers::cfr::TrainingArgs),
+    Cfr(solvers::cfr::SolverArgs),
     MccfrExternalSampling(solvers::mccfr_external_sampling::TrainingArgs),
 }
 
@@ -39,13 +68,57 @@ pub enum Game {
     Leduc,
 }
 
-fn run<G, S>(args: S::SolverArgs)
+fn run<G, S>(training_args: TrainingArgs, solver_args: S::SolverArgs)
 where
     G: State,
     S: Solver<G>,
 {
-    let mut trainer = S::new(args);
-    trainer.train();
+    let mut solver = S::new(solver_args);
+    train(training_args, &mut solver);
+
+    todo!("compute exploitablity after train");
+}
+
+fn train<G, S>(args: TrainingArgs, trainer: &mut S)
+where
+    G: State,
+    S: Solver<G>,
+{
+    let mut log_writer = if let Some(path) = args.log_path {
+        let f = File::create(path.clone()).unwrap_or_else(|err| {
+            panic!("Failed to create a file: {:?}, {}", path, err);
+        });
+        let mut w = BufWriter::new(f);
+        writeln!(w, "epoch,elapsed_seconds,exploitability").expect("Failed to write");
+        Some(w)
+    } else {
+        None
+    };
+
+    let mut util = 0.0;
+    let start_t = Instant::now();
+    let mut timer = Instant::now();
+    for i in 0..args.iterations {
+        util += trainer.train_one_epoch();
+        if timer.elapsed() > Duration::from_secs(5) {
+            let exploitability = compute_exploitability(trainer);
+            info!("epoch {:10}: exploitability: {}", i, compute_exploitability(trainer));
+            info!("Average game value: {}", util / i as f64);
+
+            if let Some(w) = &mut log_writer {
+                writeln!(w, "{},{},{:.12}", i, start_t.elapsed().as_secs(), exploitability)
+                    .expect("Failed to write");
+                w.flush().expect("Failed to flush");
+            }
+
+            timer = Instant::now();
+        }
+    }
+    info!("Training has finished");
+    trainer.print_strategy();
+
+    info!("Average game value: {}", util / args.iterations as f64);
+    info!("exploitability: {}", compute_exploitability(trainer));
 }
 
 macro_rules! def_solver {
@@ -67,10 +140,15 @@ fn main() {
     let args = AppArgs::parse();
     match args.solver {
         SolverArg::Cfr(solver_args) => {
-            def_solver!(solvers::cfr::Trainer<_>, args.game, solver_args);
+            def_solver!(solvers::cfr::Trainer<_>, args.game, args.training_args, solver_args);
         }
         SolverArg::MccfrExternalSampling(solver_args) => {
-            def_solver!(solvers::mccfr_external_sampling::Trainer::<_>, args.game, solver_args);
+            def_solver!(
+                solvers::mccfr_external_sampling::Trainer::<_>,
+                args.game,
+                args.training_args,
+                solver_args
+            );
         }
     }
 }

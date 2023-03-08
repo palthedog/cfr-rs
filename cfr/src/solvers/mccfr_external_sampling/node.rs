@@ -42,6 +42,15 @@ where
         strategy
     }
 
+    pub fn to_average_strategy(&self) -> Vec<f64> {
+        let normalizing_sum: f64 = self.strategy_sum.iter().sum();
+        if normalizing_sum == 0.0 {
+            let actions_len = self.strategy_sum.len();
+            return vec![1.0 / actions_len as f64; actions_len];
+        }
+        self.strategy_sum.iter().map(|s| s / normalizing_sum).collect()
+    }
+
     #[inline]
     pub fn get_actions(&self) -> &[S::Action] {
         &self.actions

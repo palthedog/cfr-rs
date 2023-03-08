@@ -1,13 +1,17 @@
 use clap::Args;
 
-use crate::games::State;
+use crate::{
+    eval::Strategy,
+    games::State,
+};
 
 pub mod cfr;
 pub mod mccfr_external_sampling;
 
-pub trait Solver<G: State> {
+pub trait Solver<G: State>: Strategy<G> {
     type SolverArgs: Args;
 
     fn new(args: Self::SolverArgs) -> Self;
-    fn train(&mut self);
+    fn train_one_epoch(&mut self) -> f64;
+    fn print_strategy(&self);
 }

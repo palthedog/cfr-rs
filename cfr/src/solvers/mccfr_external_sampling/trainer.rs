@@ -1,18 +1,12 @@
 use crate::{
+    eval::Strategy,
     games::{
         PlayerId,
         State,
     },
     solvers::Solver,
 };
-use clap::{
-    Args,
-    ValueHint,
-};
-use log::{
-    debug,
-    info,
-};
+use clap::Args;
 use rand::SeedableRng;
 use rand_distr::{
     Distribution,
@@ -23,24 +17,13 @@ use wyhash::WyRng;
 use std::{
     cell::RefCell,
     collections::HashMap,
-    path::PathBuf,
     rc::Rc,
-    time::{
-        Duration,
-        Instant,
-    },
 };
 
 use super::node::Node;
 
 #[derive(Args)]
 pub struct TrainingArgs {
-    #[clap(long, short, value_parser, default_value_t = 1000)]
-    iterations: usize,
-
-    #[clap(long, short, value_parser, value_hint(ValueHint::FilePath))]
-    log_path: Option<PathBuf>,
-
     #[clap(long, short, value_parser, default_value_t = 42)]
     seed: u64,
 }
@@ -51,37 +34,22 @@ where
 {
     nodes: Rc<RefCell<HashMap<S::InfoSet, Rc<RefCell<Node<S>>>>>>,
     rng: WyRng,
-    args: TrainingArgs,
 }
 
 impl<S> Trainer<S>
 where
     S: State,
 {
-    pub fn train_impl(&mut self) {
-        let log_per_secs = 5;
-        let mut timer = Instant::now().checked_sub(Duration::from_secs(log_per_secs * 2)).unwrap();
+    pub fn train_one_epoch(&mut self) -> f64 {
+        let mut p0_util = 0.0;
         let initial = <S as State>::new_root();
-        let mut util_sum = 0.0;
-        info!("Start training for {} iterations.", self.args.iterations);
-        for i in 0..self.args.iterations {
-            for traverser in 0..=1 {
-                let util = self.sampling(&initial, PlayerId::Player(traverser));
-                if traverser == 0 {
-                    debug!("epoch: {:10}, util: {}", i, util);
-                    util_sum += util;
-                }
-            }
-
-            if timer.elapsed() > Duration::from_secs(log_per_secs) {
-                info!("epoch {:10}:", i);
-                info!("Average game value: {}", util_sum / (i + 1) as f64);
-                timer = Instant::now();
+        for traverser in 0..=1 {
+            let util = self.sampling(&initial, PlayerId::Player(traverser));
+            if traverser == 0 {
+                p0_util = util;
             }
         }
-
-        info!("Training has finished");
-        info!("Average game value: {}", util_sum / self.args.iterations as f64);
+        p0_util
     }
 
     pub fn sampling(&mut self, state: &S, traverser_id: PlayerId) -> f64 {
@@ -167,6 +135,12 @@ where
     }
 }
 
+impl<S: State> Strategy<S> for Trainer<S> {
+    fn get_strategy(&self, info_set: &<S as State>::InfoSet) -> Vec<f64> {
+        self.nodes.borrow().get(info_set).unwrap().borrow().to_average_strategy()
+    }
+}
+
 impl<G: State> Solver<G> for Trainer<G> {
     type SolverArgs = TrainingArgs;
 
@@ -174,11 +148,12 @@ impl<G: State> Solver<G> for Trainer<G> {
         Trainer {
             rng: WyRng::seed_from_u64(args.seed),
             nodes: Rc::new(RefCell::new(HashMap::new())),
-            args,
         }
     }
 
-    fn train(&mut self) {
-        self.train_impl();
+    fn train_one_epoch(&mut self) -> f64 {
+        self.train_one_epoch()
     }
+
+    fn print_strategy(&self) {}
 }
