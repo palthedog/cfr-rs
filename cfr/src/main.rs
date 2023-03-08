@@ -25,7 +25,7 @@ use cfr::{
         dudo::DudoState,
         kuhn::KuhnState,
         leduc::LeducState,
-        State,
+        GameState,
     },
     solvers::{
         self,
@@ -70,18 +70,16 @@ pub enum Game {
 
 fn run<G, S>(training_args: TrainingArgs, solver_args: S::SolverArgs)
 where
-    G: State,
+    G: GameState,
     S: Solver<G>,
 {
     let mut solver = S::new(solver_args);
     train(training_args, &mut solver);
-
-    todo!("compute exploitablity after train");
 }
 
-fn train<G, S>(args: TrainingArgs, trainer: &mut S)
+fn train<G, S>(args: TrainingArgs, solver: &mut S)
 where
-    G: State,
+    G: GameState,
     S: Solver<G>,
 {
     let mut log_writer = if let Some(path) = args.log_path {
@@ -99,10 +97,10 @@ where
     let start_t = Instant::now();
     let mut timer = Instant::now();
     for i in 0..args.iterations {
-        util += trainer.train_one_epoch();
+        util += solver.train_one_epoch();
         if timer.elapsed() > Duration::from_secs(5) {
-            let exploitability = compute_exploitability(trainer);
-            info!("epoch {:10}: exploitability: {}", i, compute_exploitability(trainer));
+            let exploitability = compute_exploitability(solver);
+            info!("epoch {:10}: exploitability: {}", i, compute_exploitability(solver));
             info!("Average game value: {}", util / i as f64);
 
             if let Some(w) = &mut log_writer {
@@ -115,10 +113,10 @@ where
         }
     }
     info!("Training has finished");
-    trainer.print_strategy();
+    solver.print_strategy();
 
     info!("Average game value: {}", util / args.iterations as f64);
-    info!("exploitability: {}", compute_exploitability(trainer));
+    info!("exploitability: {}", compute_exploitability(solver));
 }
 
 macro_rules! def_solver {

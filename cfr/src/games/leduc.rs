@@ -5,8 +5,8 @@ use log::debug;
 use more_asserts::debug_assert_ge;
 
 use super::{
+    GameState,
     PlayerId,
-    State,
 };
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -254,7 +254,7 @@ impl LeducState {
     }
 }
 
-impl State for LeducState {
+impl GameState for LeducState {
     type InfoSet = LeducInfoSet;
     type Action = LeducAction;
 

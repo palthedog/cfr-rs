@@ -1,8 +1,8 @@
 use crate::{
     eval::Strategy,
     games::{
+        GameState,
         PlayerId,
-        State,
     },
     solvers::Solver,
 };
@@ -28,21 +28,21 @@ pub struct TrainingArgs {
     seed: u64,
 }
 
-pub struct Trainer<S>
+pub struct Trainer<G>
 where
-    S: State,
+    G: GameState,
 {
-    nodes: Rc<RefCell<HashMap<S::InfoSet, Rc<RefCell<Node<S>>>>>>,
+    nodes: Rc<RefCell<HashMap<G::InfoSet, Rc<RefCell<Node<G>>>>>>,
     rng: WyRng,
 }
 
-impl<S> Trainer<S>
+impl<G> Trainer<G>
 where
-    S: State,
+    G: GameState,
 {
     pub fn train_one_epoch(&mut self) -> f64 {
         let mut p0_util = 0.0;
-        let initial = <S as State>::new_root();
+        let initial = <G as GameState>::new_root();
         for traverser in 0..=1 {
             let util = self.sampling(&initial, PlayerId::Player(traverser));
             if traverser == 0 {
@@ -52,7 +52,7 @@ where
         p0_util
     }
 
-    pub fn sampling(&mut self, state: &S, traverser_id: PlayerId) -> f64 {
+    pub fn sampling(&mut self, state: &G, traverser_id: PlayerId) -> f64 {
         if state.is_terminal() {
             return state.get_payouts()[traverser_id.index()];
         }
@@ -119,7 +119,7 @@ where
         }
     }
 
-    fn sample_action(&mut self, act_probs: &[(S::Action, f64)]) -> S::Action {
+    fn sample_action(&mut self, act_probs: &[(G::Action, f64)]) -> G::Action {
         let dist = WeightedIndex::new(act_probs.iter().map(|p| p.1)).unwrap_or_else(|e| {
             panic!("Invalid weights: e: {} probs: {:?}", e, act_probs);
         });
@@ -135,13 +135,13 @@ where
     }
 }
 
-impl<S: State> Strategy<S> for Trainer<S> {
-    fn get_strategy(&self, info_set: &<S as State>::InfoSet) -> Vec<f64> {
+impl<G: GameState> Strategy<G> for Trainer<G> {
+    fn get_strategy(&self, info_set: &<G as GameState>::InfoSet) -> Vec<f64> {
         self.nodes.borrow().get(info_set).unwrap().borrow().to_average_strategy()
     }
 }
 
-impl<G: State> Solver<G> for Trainer<G> {
+impl<G: GameState> Solver<G> for Trainer<G> {
     type SolverArgs = TrainingArgs;
 
     fn new(args: Self::SolverArgs) -> Self {

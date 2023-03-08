@@ -10,8 +10,8 @@ use more_asserts::{
 use rand::Rng;
 
 use super::{
+    GameState,
     PlayerId,
-    State,
 };
 
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
@@ -123,7 +123,7 @@ pub struct DudoState {
     pub dice_count: [i32; 2],
 }
 
-impl State for DudoState {
+impl GameState for DudoState {
     type InfoSet = DudoInfoSet;
     type Action = DudoAction;
 

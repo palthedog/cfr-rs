@@ -8,11 +8,11 @@ use log::{
 use more_asserts::assert_ge;
 
 use crate::games::{
+    GameState,
     PlayerId,
-    State,
 };
 
-pub trait Strategy<S: State> {
+pub trait Strategy<S: GameState> {
     fn get_strategy(&self, info_set: &S::InfoSet) -> Vec<f64>;
 }
 
@@ -20,8 +20,8 @@ fn max_index(values: &[f64]) -> usize {
     values.iter().enumerate().max_by(|(_i, a), (_j, b)| a.total_cmp(b)).map(|(i, _)| i).unwrap()
 }
 
-impl<S: State> Strategy<S> for HashMap<S::InfoSet, Vec<f64>> {
-    fn get_strategy(&self, info_set: &<S as State>::InfoSet) -> Vec<f64> {
+impl<S: GameState> Strategy<S> for HashMap<S::InfoSet, Vec<f64>> {
+    fn get_strategy(&self, info_set: &<S as GameState>::InfoSet) -> Vec<f64> {
         // pure strategy
         let utils = self.get(info_set).unwrap();
         let index = max_index(utils);
@@ -31,18 +31,18 @@ impl<S: State> Strategy<S> for HashMap<S::InfoSet, Vec<f64>> {
     }
 }
 
-pub struct ReachProbabilities<S: State> {
+pub struct ReachProbabilities<S: GameState> {
     reach_probabilities: HashMap<S, f64>,
 }
 
-impl<S: State> ReachProbabilities<S> {
+impl<S: GameState> ReachProbabilities<S> {
     fn insert(&mut self, state: S, reach_probability: f64) {
         let prob = self.reach_probabilities.entry(state).or_insert(0.0);
         *prob += reach_probability;
     }
 }
 
-impl<S: State> Default for ReachProbabilities<S> {
+impl<S: GameState> Default for ReachProbabilities<S> {
     fn default() -> Self {
         Self {
             reach_probabilities: HashMap::new(),
@@ -50,7 +50,7 @@ impl<S: State> Default for ReachProbabilities<S> {
     }
 }
 
-pub fn calc_reach_probabilities<S: State, St: Strategy<S>>(
+pub fn calc_reach_probabilities<S: GameState, St: Strategy<S>>(
     br_player_id: PlayerId,
     strategy: &St,
     state: &S,
@@ -114,7 +114,7 @@ pub fn calc_reach_probabilities<S: State, St: Strategy<S>>(
 /// Calculate an expected utility value at the given `state` if:
 /// - the `br_player` plays the best hand (the player knows opponent's strategy)
 /// - other players play the trained strategies by `trainer`
-pub fn calc_best_response_value<S: State, St: Strategy<S>>(
+pub fn calc_best_response_value<S: GameState, St: Strategy<S>>(
     action_utilities: &mut HashMap<S::InfoSet, Vec<f64>>,
     reach_probabilities: &HashMap<S::InfoSet, ReachProbabilities<S>>,
     br_player: PlayerId,
@@ -211,7 +211,7 @@ pub fn calc_expected_value<S, S0, S1>(
     state: &S,
 ) -> f64
 where
-    S: State,
+    S: GameState,
     S0: Strategy<S>,
     S1: Strategy<S>,
 {
@@ -246,7 +246,7 @@ where
     ev
 }
 
-pub fn compute_exploitability<S: State, St: Strategy<S>>(strategy: &St) -> f64 {
+pub fn compute_exploitability<S: GameState, St: Strategy<S>>(strategy: &St) -> f64 {
     let root_state = S::new_root();
     let mut rp0: HashMap<S::InfoSet, ReachProbabilities<S>> = HashMap::new();
     let mut rp1: HashMap<S::InfoSet, ReachProbabilities<S>> = HashMap::new();

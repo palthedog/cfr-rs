@@ -1,21 +1,21 @@
-use crate::games::State;
+use crate::games::GameState;
 
-pub struct Node<S>
+pub struct Node<G>
 where
-    S: State,
+    G: GameState,
 {
     //info_set: S::InfoSet,
     pub regret_sum: Vec<f64>,
     pub strategy_sum: Vec<f64>,
 
-    pub actions: Vec<S::Action>,
+    pub actions: Vec<G::Action>,
 }
 
-impl<S> Node<S>
+impl<G> Node<G>
 where
-    S: State,
+    G: GameState,
 {
-    pub fn new(actions: Vec<S::Action> /*, info_set: S::InfoSet*/) -> Self {
+    pub fn new(actions: Vec<G::Action> /*, info_set: S::InfoSet*/) -> Self {
         let act_len = actions.len();
         Self {
             //info_set,
@@ -52,7 +52,7 @@ where
     }
 
     #[inline]
-    pub fn get_actions(&self) -> &[S::Action] {
+    pub fn get_actions(&self) -> &[G::Action] {
         &self.actions
     }
 }

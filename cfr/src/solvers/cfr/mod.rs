@@ -4,7 +4,7 @@ use std::collections::HashMap;
 
 use crate::{
     eval::Strategy,
-    games::State,
+    games::GameState,
 };
 use clap::Args;
 use log::{
@@ -21,25 +21,25 @@ use super::Solver;
 #[derive(Args)]
 pub struct SolverArgs {}
 
-pub struct Trainer<S>
+pub struct Trainer<G>
 where
-    S: State,
+    G: GameState,
 {
-    nodes: HashMap<S::InfoSet, Node<S>>,
+    nodes: HashMap<G::InfoSet, Node<G>>,
 }
 
-impl<S> Trainer<S>
+impl<G> Trainer<G>
 where
-    S: State,
+    G: GameState,
 {
     #[cfg(test)]
-    pub fn new_with_nodes(_args: SolverArgs, nodes: HashMap<S::InfoSet, Node<S>>) -> Self {
+    pub fn new_with_nodes(_args: SolverArgs, nodes: HashMap<G::InfoSet, Node<G>>) -> Self {
         Trainer {
             nodes,
         }
     }
 
-    pub fn cfr(&mut self, state: &S, actions_prob: [f64; 2]) -> [f64; 2] {
+    pub fn cfr(&mut self, state: &G, actions_prob: [f64; 2]) -> [f64; 2] {
         if state.is_terminal() {
             return state.get_payouts();
         }
@@ -104,12 +104,12 @@ where
     }
 
     fn train_one_epoch(&mut self) -> f64 {
-        let initial = <S as State>::new_root();
+        let initial = <G as GameState>::new_root();
         self.cfr(&initial, [1.0, 1.0])[PlayerId::Player(0).index()]
     }
 
     fn print_nodes(&self) {
-        let mut nodes: Vec<&Node<S>> = self.nodes.values().collect();
+        let mut nodes: Vec<&Node<G>> = self.nodes.values().collect();
         nodes.sort();
         info!("Nodes [");
         for node in nodes {
@@ -119,13 +119,13 @@ where
     }
 }
 
-impl<S: State> Strategy<S> for Trainer<S> {
-    fn get_strategy(&self, info_set: &<S as State>::InfoSet) -> Vec<f64> {
+impl<G: GameState> Strategy<G> for Trainer<G> {
+    fn get_strategy(&self, info_set: &<G as GameState>::InfoSet) -> Vec<f64> {
         self.nodes.get(info_set).unwrap().to_average_strategy()
     }
 }
 
-impl<G: State> Solver<G> for Trainer<G> {
+impl<G: GameState> Solver<G> for Trainer<G> {
     type SolverArgs = SolverArgs;
 
     fn new(_args: Self::SolverArgs) -> Self {

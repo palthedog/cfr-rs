@@ -3,8 +3,8 @@ use std::fmt::Display;
 use itertools::Itertools;
 
 use super::{
+    GameState,
     PlayerId,
-    State,
 };
 
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
@@ -68,7 +68,7 @@ pub struct KuhnState {
     pub pot: i32,
 }
 
-impl State for KuhnState {
+impl GameState for KuhnState {
     type InfoSet = KuhnInfoSet;
     type Action = KuhnAction;
 

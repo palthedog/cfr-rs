@@ -35,7 +35,7 @@ impl PlayerId {
     }
 }
 
-pub trait State:
+pub trait GameState:
     Clone + std::fmt::Debug + std::hash::Hash + std::cmp::Eq + std::cmp::PartialOrd + std::cmp::Ord
 {
     type InfoSet: Clone
