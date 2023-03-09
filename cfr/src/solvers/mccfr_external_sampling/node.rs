@@ -1,8 +1,8 @@
-use crate::games::GameState;
+use crate::games::Game;
 
 pub struct Node<G>
 where
-    G: GameState,
+    G: Game,
 {
     //info_set: S::InfoSet,
     pub regret_sum: Vec<f64>,
@@ -13,7 +13,7 @@ where
 
 impl<G> Node<G>
 where
-    G: GameState,
+    G: Game,
 {
     pub fn new(actions: Vec<G::Action>) -> Self {
         let act_len = actions.len();

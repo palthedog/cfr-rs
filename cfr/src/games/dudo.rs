@@ -10,7 +10,7 @@ use more_asserts::{
 use rand::Rng;
 
 use super::{
-    GameState,
+    Game,
     PlayerId,
 };
 
@@ -123,12 +123,21 @@ pub struct DudoState {
     pub dice_count: [i32; 2],
 }
 
-impl GameState for DudoState {
+pub struct Dudo {}
+
+impl Dudo {
+    pub fn new() -> Self {
+        Self {}
+    }
+}
+
+impl Game for Dudo {
+    type State = DudoState;
     type InfoSet = DudoInfoSet;
     type Action = DudoAction;
 
-    fn new_root() -> Self {
-        Self {
+    fn new_root(&self) -> Self::State {
+        DudoState {
             round: 0,
             node_player_id: PlayerId::Chance,
             prev_winner: PlayerId::Player(0),
@@ -138,19 +147,19 @@ impl GameState for DudoState {
         }
     }
 
-    fn to_info_set(&self) -> DudoInfoSet {
-        DudoInfoSet::from(self)
+    fn to_info_set(&self, state: &Self::State) -> DudoInfoSet {
+        DudoInfoSet::from(state)
     }
 
-    fn is_terminal(&self) -> bool {
-        self.dice_count.iter().any(|cnt| *cnt == 0)
+    fn is_terminal(&self, state: &Self::State) -> bool {
+        state.dice_count.iter().any(|cnt| *cnt == 0)
     }
 
-    fn get_payouts(&self) -> [f64; 2] {
-        debug_assert!(self.is_terminal());
+    fn get_payouts(&self, state: &Self::State) -> [f64; 2] {
+        debug_assert!(self.is_terminal(state));
 
         let mut ret = [0.0; 2];
-        for (i, cnt) in self.dice_count.iter().enumerate() {
+        for (i, cnt) in state.dice_count.iter().enumerate() {
             ret[i] = if *cnt == 0 {
                 -1.0
             } else {
@@ -160,17 +169,17 @@ impl GameState for DudoState {
         ret
     }
 
-    fn get_node_player_id(&self) -> PlayerId {
-        self.node_player_id
+    fn get_node_player_id(&self, state: &Self::State) -> PlayerId {
+        state.node_player_id
     }
 
-    fn with_action(&self, action: Self::Action) -> Self {
-        let mut next = self.clone();
+    fn with_action(&self, state: &Self::State, action: Self::Action) -> Self::State {
+        let mut next = state.clone();
         next.update(action);
         next
     }
 
-    fn list_legal_chance_actions(&self) -> Vec<(Self::Action, f64)> {
+    fn list_legal_chance_actions(&self, _state: &Self::State) -> Vec<(Self::Action, f64)> {
         let mut v = vec![];
         let num_actions = 6 * 6;
         let prob = 1.0 / num_actions as f64;
@@ -190,19 +199,19 @@ impl GameState for DudoState {
         v
     }
 
-    fn list_legal_actions(&self) -> Vec<DudoAction> {
+    fn list_legal_actions(&self, state: &Self::State) -> Vec<DudoAction> {
         let mut v = vec![];
 
-        if !self.action_history.is_empty() {
+        if !state.action_history.is_empty() {
             // dudo
             v.push(DudoAction::Dudo);
         }
 
-        let count_max: i32 = self.dice_count.iter().sum();
+        let count_max: i32 = state.dice_count.iter().sum();
 
         let rank_start: usize;
         let normalized_count: i32;
-        let last_claim = self.current_claim();
+        let last_claim = state.current_claim();
         match last_claim {
             Some(c) => {
                 rank_start = c.rank + 1;
@@ -369,8 +378,7 @@ impl From<&DudoState> for DudoInfoSet {
             uid = (uid << 5) | bits;
         }
         // dice: [0, 5] 3 bits
-        for (dice, cnt) in
-            state.player_rolls[state.get_node_player_id().index()].count.iter().enumerate()
+        for (dice, cnt) in state.player_rolls[state.node_player_id.index()].count.iter().enumerate()
         {
             if *cnt == 1 {
                 uid = (uid << 3) | dice as u64;
@@ -386,7 +394,7 @@ impl From<&DudoState> for DudoInfoSet {
             round: state.round,
             next_player_id: state.node_player_id,
             action_history: state.action_history.clone(),
-            player_roll: state.player_rolls[state.get_node_player_id().index()],
+            player_roll: state.player_rolls[state.node_player_id.index()],
             dice_count: state.dice_count,
         }
     }
@@ -428,7 +436,8 @@ mod tests {
 
     #[test]
     fn test_payoffs() {
-        let mut state = DudoState::new_root();
+        let game = Dudo {};
+        let mut state = game.new_root();
         let chance = DudoAction::ChanceRollDices([
             RollResult::new([1, 0, 0, 0, 0, 0]),
             RollResult::new([0, 1, 0, 0, 0, 0]),
@@ -443,6 +452,6 @@ mod tests {
 
         let dudo = DudoAction::Dudo;
         state.update(dudo);
-        assert_eq!([1.0, -1.0], state.get_payouts());
+        assert_eq!([1.0, -1.0], game.get_payouts(&state));
     }
 }

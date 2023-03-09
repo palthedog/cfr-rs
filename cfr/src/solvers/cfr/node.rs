@@ -1,13 +1,13 @@
 use std::fmt::Display;
 
-use games::GameState;
+use games::Game;
 use more_asserts::debug_assert_ge;
 
 use crate::games;
 
 pub struct Node<G>
 where
-    G: GameState,
+    G: Game,
 {
     regret_sum: Vec<f64>,
     strategy: Vec<f64>,
@@ -19,7 +19,7 @@ where
 
 impl<G> Node<G>
 where
-    G: GameState,
+    G: Game,
 {
     pub fn new(actions: Vec<G::Action>, info_set: G::InfoSet) -> Self {
         Self {
@@ -74,11 +74,11 @@ where
     }
 }
 
-impl<G> std::cmp::Eq for Node<G> where G: GameState {}
+impl<G> std::cmp::Eq for Node<G> where G: Game {}
 
 impl<G> std::cmp::PartialEq for Node<G>
 where
-    G: GameState,
+    G: Game,
 {
     fn eq(&self, other: &Self) -> bool {
         self.info_set.eq(&other.info_set)
@@ -87,7 +87,7 @@ where
 
 impl<G> std::cmp::PartialOrd for Node<G>
 where
-    G: GameState,
+    G: Game,
 {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         Some(self.info_set.cmp(&other.info_set))
@@ -96,7 +96,7 @@ where
 
 impl<G> std::cmp::Ord for Node<G>
 where
-    G: GameState,
+    G: Game,
 {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
         self.info_set.cmp(&other.info_set)
@@ -105,7 +105,7 @@ where
 
 impl<G> Display for Node<G>
 where
-    G: GameState,
+    G: Game,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         // Info set

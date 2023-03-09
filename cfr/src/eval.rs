@@ -5,11 +5,11 @@ use log::debug;
 use more_asserts::assert_ge;
 
 use crate::games::{
-    GameState,
+    Game,
     PlayerId,
 };
 
-pub trait Strategy<S: GameState> {
+pub trait Strategy<S: Game> {
     // TODO: Make it alloc-free.
     // e.g.
     //  - sample(rng, actions: &[Action]) -> Action
@@ -28,7 +28,7 @@ fn max_index(values: &[f64]) -> usize {
     values.iter().enumerate().max_by(|(_i, a), (_j, b)| a.total_cmp(b)).map(|(i, _)| i).unwrap()
 }
 
-fn best_response_utils_to_pure_strategy<G: GameState>(
+fn best_response_utils_to_pure_strategy<G: Game>(
     values: &HashMap<G::InfoSet, Vec<f64>>,
 ) -> HashMap<G::InfoSet, Vec<f64>> {
     values
@@ -43,24 +43,24 @@ fn best_response_utils_to_pure_strategy<G: GameState>(
         .collect()
 }
 
-impl<S: GameState> Strategy<S> for HashMap<S::InfoSet, Vec<f64>> {
-    fn get_strategy(&self, info_set: &<S as GameState>::InfoSet) -> Option<Vec<f64>> {
+impl<S: Game> Strategy<S> for HashMap<S::InfoSet, Vec<f64>> {
+    fn get_strategy(&self, info_set: &<S as Game>::InfoSet) -> Option<Vec<f64>> {
         Some(self.get(info_set).unwrap().clone())
     }
 }
 
-pub struct ReachProbabilities<S: GameState> {
-    reach_probabilities: HashMap<S, f64>,
+pub struct ReachProbabilities<G: Game> {
+    reach_probabilities: HashMap<G::State, f64>,
 }
 
-impl<S: GameState> ReachProbabilities<S> {
-    fn insert(&mut self, state: S, reach_probability: f64) {
+impl<G: Game> ReachProbabilities<G> {
+    fn insert(&mut self, state: G::State, reach_probability: f64) {
         let prob = self.reach_probabilities.entry(state).or_insert(0.0);
         *prob += reach_probability;
     }
 }
 
-impl<S: GameState> Default for ReachProbabilities<S> {
+impl<S: Game> Default for ReachProbabilities<S> {
     fn default() -> Self {
         Self {
             reach_probabilities: HashMap::new(),
@@ -68,25 +68,27 @@ impl<S: GameState> Default for ReachProbabilities<S> {
     }
 }
 
-pub fn calc_reach_probabilities<S: GameState, St: Strategy<S>>(
+pub fn calc_reach_probabilities<G: Game, St: Strategy<G>>(
     br_player_id: PlayerId,
     strategy: &St,
-    state: &S,
+    game: &G,
+    state: &G::State,
     reach_probability: f64,
-    reach_probabilities: &mut HashMap<S::InfoSet, ReachProbabilities<S>>,
+    reach_probabilities: &mut HashMap<G::InfoSet, ReachProbabilities<G>>,
 ) {
-    if state.is_terminal() {
+    if game.is_terminal(state) {
         return;
     }
 
-    let node_player_id = state.get_node_player_id();
+    let node_player_id = game.get_node_player_id(state);
     if node_player_id == PlayerId::Chance {
-        let actions = state.list_legal_chance_actions();
+        let actions = game.list_legal_chance_actions(state);
         for (act, prob) in actions {
-            let next_state = state.with_action(act);
+            let next_state = game.with_action(state, act);
             calc_reach_probabilities(
                 br_player_id,
                 strategy,
+                game,
                 &next_state,
                 reach_probability * prob,
                 reach_probabilities,
@@ -95,18 +97,19 @@ pub fn calc_reach_probabilities<S: GameState, St: Strategy<S>>(
         return;
     }
 
-    let info_set = state.to_info_set();
-    let actions = state.list_legal_actions();
+    let info_set = game.to_info_set(state);
+    let actions = game.list_legal_actions(state);
     if node_player_id == br_player_id {
         // the player plays the best response.
         let stateful_info_set = reach_probabilities.entry(info_set).or_default();
         stateful_info_set.insert(state.clone(), reach_probability);
 
         for act in actions {
-            let next_state = state.with_action(act);
+            let next_state = game.with_action(state, act);
             calc_reach_probabilities(
                 br_player_id,
                 strategy,
+                game,
                 &next_state,
                 reach_probability * 1.0, // br_player always choose the best action.
                 reach_probabilities,
@@ -117,10 +120,11 @@ pub fn calc_reach_probabilities<S: GameState, St: Strategy<S>>(
         let strategy_ary = strategy.safe_get_strategy(actions.len(), &info_set);
         for (i, act) in actions.iter().enumerate() {
             let prob = strategy_ary[i];
-            let next_state = state.with_action(*act);
+            let next_state = game.with_action(state, *act);
             calc_reach_probabilities(
                 br_player_id,
                 strategy,
+                game,
                 &next_state,
                 reach_probability * prob,
                 reach_probabilities,
@@ -132,27 +136,29 @@ pub fn calc_reach_probabilities<S: GameState, St: Strategy<S>>(
 /// Calculate an expected utility value at the given `state` if:
 /// - the `br_player` plays the best hand (the player knows opponent's strategy)
 /// - other players play the trained strategies by `trainer`
-pub fn calc_best_response_value<S: GameState, St: Strategy<S>>(
-    action_utilities: &mut HashMap<S::InfoSet, Vec<f64>>,
-    reach_probabilities: &HashMap<S::InfoSet, ReachProbabilities<S>>,
+pub fn calc_best_response_value<G: Game, St: Strategy<G>>(
+    action_utilities: &mut HashMap<G::InfoSet, Vec<f64>>,
+    reach_probabilities: &HashMap<G::InfoSet, ReachProbabilities<G>>,
     br_player: PlayerId,
     strategy: &St,
-    state: &S,
+    game: &G,
+    state: &G::State,
 ) -> f64 {
-    if state.is_terminal() {
-        return state.get_payouts()[br_player.index()];
+    if game.is_terminal(state) {
+        return game.get_payouts(state)[br_player.index()];
     }
 
-    if state.get_node_player_id() == PlayerId::Chance {
-        let actions = state.list_legal_chance_actions();
+    if game.get_node_player_id(state) == PlayerId::Chance {
+        let actions = game.list_legal_chance_actions(state);
         let mut node_util = 0.0;
         for (act, prob) in actions {
-            let next_state = state.with_action(act);
+            let next_state = game.with_action(state, act);
             let act_util = calc_best_response_value(
                 action_utilities,
                 reach_probabilities,
                 br_player,
                 strategy,
+                game,
                 &next_state,
             );
             node_util += prob * act_util;
@@ -160,12 +166,12 @@ pub fn calc_best_response_value<S: GameState, St: Strategy<S>>(
         return node_util;
     }
 
-    let actions = state.list_legal_actions();
-    if state.get_node_player_id() == br_player {
+    let actions = game.list_legal_actions(state);
+    if game.get_node_player_id(state) == br_player {
         // Node for the Best Response player.
         // The player always plays the best response for the current info set.
 
-        let info_set = state.to_info_set();
+        let info_set = game.to_info_set(state);
 
         // Check the best action for the current INFO SET (not `state`)
         if !action_utilities.contains_key(&info_set) {
@@ -174,12 +180,13 @@ pub fn calc_best_response_value<S: GameState, St: Strategy<S>>(
                 let rp = reach_probabilities.get(&info_set).unwrap();
                 let mut act_util = 0.0;
                 for (sib_state, state_reach_prob) in rp.reach_probabilities.iter() {
-                    let next_state = sib_state.with_action(*act);
+                    let next_state = game.with_action(sib_state, *act);
                     let util = calc_best_response_value(
                         action_utilities,
                         reach_probabilities,
                         br_player,
                         strategy,
+                        game,
                         &next_state,
                     );
                     act_util += state_reach_prob * util;
@@ -192,29 +199,31 @@ pub fn calc_best_response_value<S: GameState, St: Strategy<S>>(
         // Play the best response for the current STATE.
         let best_action_index = max_index(action_utilities.get(&info_set).unwrap());
         let best_action = actions[best_action_index];
-        let next_state = state.with_action(best_action);
+        let next_state = game.with_action(state, best_action);
         return calc_best_response_value(
             action_utilities,
             reach_probabilities,
             br_player,
             strategy,
+            game,
             &next_state,
         );
     }
 
     // the opponent player plays as the trained strategy.
-    let info_set = state.to_info_set();
+    let info_set = game.to_info_set(state);
     let strategy_ary = strategy.safe_get_strategy(actions.len(), &info_set);
     let mut node_util = 0.0;
     for (i, act) in actions.iter().enumerate() {
         let act_prob = strategy_ary[i];
 
-        let next_state = state.with_action(*act);
+        let next_state = game.with_action(state, *act);
         let util = calc_best_response_value(
             action_utilities,
             reach_probabilities,
             br_player,
             strategy,
+            game,
             &next_state,
         );
         node_util += act_prob * util;
@@ -222,63 +231,87 @@ pub fn calc_best_response_value<S: GameState, St: Strategy<S>>(
     node_util
 }
 
-pub fn calc_expected_value<S, S0, S1>(
+pub fn calc_expected_value<G, S0, S1>(
     player_id: PlayerId,
     strategy0: &S0,
     strategy1: &S1,
-    state: &S,
+    game: &G,
+    state: &G::State,
 ) -> f64
 where
-    S: GameState,
-    S0: Strategy<S>,
-    S1: Strategy<S>,
+    G: Game,
+    S0: Strategy<G>,
+    S1: Strategy<G>,
 {
-    if state.is_terminal() {
-        return state.get_payouts()[player_id.index()];
+    if game.is_terminal(state) {
+        return game.get_payouts(state)[player_id.index()];
     }
-    if state.get_node_player_id() == PlayerId::Chance {
-        let actions = state.list_legal_chance_actions();
+    if game.get_node_player_id(state) == PlayerId::Chance {
+        let actions = game.list_legal_chance_actions(state);
         let mut node_util = 0.0;
         for (act, prob) in actions {
-            let next_state = state.with_action(act);
-            let action_util = calc_expected_value(player_id, strategy0, strategy1, &next_state);
+            let next_state = game.with_action(state, act);
+            let action_util =
+                calc_expected_value(player_id, strategy0, strategy1, game, &next_state);
             node_util += prob * action_util;
         }
         return node_util;
     }
-    let actions = state.list_legal_actions();
-    let info_set = state.to_info_set();
-    let strategy = match state.get_node_player_id() {
+    let actions = game.list_legal_actions(state);
+    let info_set = game.to_info_set(state);
+    let strategy = match game.get_node_player_id(state) {
         PlayerId::Player(0) => strategy0.safe_get_strategy(actions.len(), &info_set),
         PlayerId::Player(1) => strategy1.safe_get_strategy(actions.len(), &info_set),
         PlayerId::Player(_) => panic!(),
         PlayerId::Chance => todo!(),
     };
-    debug!("p: {:?}, infoset: {}, strategy: {:?}", state.get_node_player_id(), info_set, strategy);
+    debug!(
+        "p: {:?}, infoset: {}, strategy: {:?}",
+        game.get_node_player_id(state),
+        info_set,
+        strategy
+    );
     let mut ev = 0.0;
     for (i, act) in actions.iter().enumerate() {
-        let act_value =
-            calc_expected_value(player_id, strategy0, strategy1, &state.with_action(*act));
+        let act_value = calc_expected_value(
+            player_id,
+            strategy0,
+            strategy1,
+            game,
+            &game.with_action(state, *act),
+        );
         let prob = strategy[i];
         ev += prob * act_value;
     }
     ev
 }
 
-pub fn compute_exploitability<G: GameState, St: Strategy<G>>(strategy: &St) -> f64 {
-    let root_state = G::new_root();
+pub fn compute_exploitability<G: Game, St: Strategy<G>>(game: &G, strategy: &St) -> f64 {
+    let root_state = game.new_root();
     let mut rp0: HashMap<G::InfoSet, ReachProbabilities<G>> = HashMap::new();
     let mut rp1: HashMap<G::InfoSet, ReachProbabilities<G>> = HashMap::new();
-    calc_reach_probabilities(PlayerId::Player(0), strategy, &root_state, 1.0, &mut rp0);
-    calc_reach_probabilities(PlayerId::Player(1), strategy, &root_state, 1.0, &mut rp1);
+    calc_reach_probabilities(PlayerId::Player(0), strategy, game, &root_state, 1.0, &mut rp0);
+    calc_reach_probabilities(PlayerId::Player(1), strategy, game, &root_state, 1.0, &mut rp1);
     let mut brmap0: HashMap<G::InfoSet, Vec<f64>> = HashMap::new();
     let mut brmap1: HashMap<G::InfoSet, Vec<f64>> = HashMap::new();
     debug!("Calculating best response for player 0");
-    let br0 =
-        calc_best_response_value(&mut brmap0, &rp0, PlayerId::Player(0), strategy, &root_state);
+    let br0 = calc_best_response_value(
+        &mut brmap0,
+        &rp0,
+        PlayerId::Player(0),
+        strategy,
+        game,
+        &root_state,
+    );
     debug!("Calculating best response for player 1");
-    let br1 =
-        calc_best_response_value(&mut brmap1, &rp1, PlayerId::Player(1), strategy, &root_state);
+    let br1 = calc_best_response_value(
+        &mut brmap1,
+        &rp1,
+        PlayerId::Player(1),
+        strategy,
+        game,
+        &root_state,
+    );
     debug!("util_0(br0): {}, util_1(br1): {}", br0, br1);
 
     let br_pure_strategies0 = best_response_utils_to_pure_strategy::<G>(&brmap0);
@@ -304,11 +337,11 @@ pub fn compute_exploitability<G: GameState, St: Strategy<G>>(strategy: &St) -> f
             }
         }
     }
-    let root_state = G::new_root();
+    let root_state = game.new_root();
     let ev_0 =
-        calc_expected_value(PlayerId::Player(1), strategy, &br_pure_strategies1, &root_state);
+        calc_expected_value(PlayerId::Player(1), strategy, &br_pure_strategies1, game, &root_state);
     let ev_1 =
-        calc_expected_value(PlayerId::Player(0), &br_pure_strategies0, strategy, &root_state);
+        calc_expected_value(PlayerId::Player(0), &br_pure_strategies0, strategy, game, &root_state);
 
     debug!("util_1(s0, s_br1): {} util_0(s_br0, s1): {}", ev_0, ev_1);
     let exploitability = (ev_0 + ev_1) / 2.0;

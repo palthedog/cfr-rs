@@ -4,7 +4,7 @@ use std::collections::HashMap;
 
 use crate::{
     eval::Strategy,
-    games::GameState,
+    games::Game,
 };
 use clap::Args;
 use log::{
@@ -23,33 +23,35 @@ pub struct SolverArgs {}
 
 pub struct Trainer<G>
 where
-    G: GameState,
+    G: Game,
 {
+    game: G,
     nodes: HashMap<G::InfoSet, Node<G>>,
 }
 
 impl<G> Trainer<G>
 where
-    G: GameState,
+    G: Game,
 {
     #[cfg(test)]
-    pub fn new_with_nodes(_args: SolverArgs, nodes: HashMap<G::InfoSet, Node<G>>) -> Self {
+    pub fn new_with_nodes(game: G, _args: SolverArgs, nodes: HashMap<G::InfoSet, Node<G>>) -> Self {
         Trainer {
+            game,
             nodes,
         }
     }
 
-    pub fn cfr(&mut self, state: &G, actions_prob: [f64; 2]) -> [f64; 2] {
-        if state.is_terminal() {
-            return state.get_payouts();
+    pub fn cfr(&mut self, state: &G::State, actions_prob: [f64; 2]) -> [f64; 2] {
+        if self.game.is_terminal(state) {
+            return self.game.get_payouts(state);
         }
 
-        let player = state.get_node_player_id();
+        let player = self.game.get_node_player_id(state);
         if player == PlayerId::Chance {
-            let actions = state.list_legal_chance_actions();
+            let actions = self.game.list_legal_chance_actions(state);
             let mut node_util = [0.0, 0.0];
             for (act, prob) in actions {
-                let next_state = state.with_action(act);
+                let next_state = self.game.with_action(state, act);
                 let mut next_actions_prob = actions_prob;
                 for action_prob in &mut next_actions_prob {
                     *action_prob *= prob;
@@ -62,9 +64,9 @@ where
             return node_util;
         }
 
-        let info_set = state.to_info_set();
+        let info_set = self.game.to_info_set(state);
         let node = self.nodes.entry(info_set.clone()).or_insert_with(|| {
-            let actions = state.list_legal_actions();
+            let actions = self.game.list_legal_actions(state);
             Node::new(actions, info_set.clone())
         });
         let mut node_util = [0.0f64; 2];
@@ -80,7 +82,7 @@ where
         let strategy = node.to_strategy(realization_weight);
         for (i, act) in actions.iter().enumerate() {
             let action_prob = strategy[i];
-            let next_state = state.with_action(*act);
+            let next_state = self.game.with_action(state, *act);
             let mut next_actions_prob = actions_prob;
 
             next_actions_prob[player.index()] *= action_prob;
@@ -104,7 +106,7 @@ where
     }
 
     fn train_one_epoch(&mut self) -> f64 {
-        let initial = <G as GameState>::new_root();
+        let initial = self.game.new_root();
         self.cfr(&initial, [1.0, 1.0])[PlayerId::Player(0).index()]
     }
 
@@ -119,17 +121,18 @@ where
     }
 }
 
-impl<G: GameState> Strategy<G> for Trainer<G> {
-    fn get_strategy(&self, info_set: &<G as GameState>::InfoSet) -> Option<Vec<f64>> {
+impl<G: Game> Strategy<G> for Trainer<G> {
+    fn get_strategy(&self, info_set: &<G as Game>::InfoSet) -> Option<Vec<f64>> {
         Some(self.nodes.get(info_set).unwrap().to_average_strategy())
     }
 }
 
-impl<G: GameState> Solver<G> for Trainer<G> {
+impl<G: Game> Solver<G> for Trainer<G> {
     type SolverArgs = SolverArgs;
 
-    fn new(_args: Self::SolverArgs) -> Self {
+    fn new(game: G, _args: Self::SolverArgs) -> Self {
         Trainer {
+            game,
             nodes: HashMap::new(),
         }
     }
@@ -140,5 +143,9 @@ impl<G: GameState> Solver<G> for Trainer<G> {
 
     fn print_strategy(&self) {
         self.print_nodes();
+    }
+
+    fn game_ref(&self) -> &G {
+        &self.game
     }
 }

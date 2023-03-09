@@ -3,7 +3,7 @@ use std::fmt::Display;
 use itertools::Itertools;
 
 use super::{
-    GameState,
+    Game,
     PlayerId,
 };
 
@@ -68,12 +68,21 @@ pub struct KuhnState {
     pub pot: i32,
 }
 
-impl GameState for KuhnState {
+pub struct Kuhn {}
+
+impl Kuhn {
+    pub fn new() -> Self {
+        Self {}
+    }
+}
+
+impl Game for Kuhn {
+    type State = KuhnState;
     type InfoSet = KuhnInfoSet;
     type Action = KuhnAction;
 
-    fn new_root() -> Self {
-        Self {
+    fn new_root(&self) -> Self::State {
+        Self::State {
             next_player_id: PlayerId::Chance,
             actions: [None, None],
             cards: [Card::Jack, Card::Jack],
@@ -81,15 +90,15 @@ impl GameState for KuhnState {
         }
     }
 
-    fn to_info_set(&self) -> Self::InfoSet {
-        self.into()
+    fn to_info_set(&self, state: &Self::State) -> Self::InfoSet {
+        state.into()
     }
 
-    fn list_legal_actions(&self) -> Vec<KuhnAction> {
+    fn list_legal_actions(&self, _state: &Self::State) -> Vec<KuhnAction> {
         vec![KuhnAction::Pass, KuhnAction::Bet]
     }
 
-    fn list_legal_chance_actions(&self) -> Vec<(KuhnAction, f64)> {
+    fn list_legal_chance_actions(&self, _state: &Self::State) -> Vec<(KuhnAction, f64)> {
         let cards = [Card::Jack, Card::Queen, Card::King];
         let mut v = vec![];
         let pairs = cards.iter().permutations(2).collect_vec();
@@ -100,16 +109,16 @@ impl GameState for KuhnState {
         v
     }
 
-    fn with_action(&self, action: KuhnAction) -> Self {
-        let mut next = self.clone();
+    fn with_action(&self, state: &Self::State, action: KuhnAction) -> Self::State {
+        let mut next = state.clone();
         match action {
             KuhnAction::Pass => {
-                next.actions[self.next_player_id.index()] = Some(action);
-                next.next_player_id = self.next_player_id.opponent();
+                next.actions[state.next_player_id.index()] = Some(action);
+                next.next_player_id = state.next_player_id.opponent();
             }
             KuhnAction::Bet => {
-                next.actions[self.next_player_id.index()] = Some(action);
-                next.next_player_id = self.next_player_id.opponent();
+                next.actions[state.next_player_id.index()] = Some(action);
+                next.next_player_id = state.next_player_id.opponent();
                 next.pot += 1;
             }
             KuhnAction::ChanceDealCards(cards) => {
@@ -120,28 +129,28 @@ impl GameState for KuhnState {
         next
     }
 
-    fn is_terminal(&self) -> bool {
-        if self.next_player_id == PlayerId::Chance {
+    fn is_terminal(&self, state: &Self::State) -> bool {
+        if state.next_player_id == PlayerId::Chance {
             return false;
         }
-        if self.actions[self.next_player_id.index()] == Some(KuhnAction::Bet)
-            && self.actions[self.next_player_id.opponent().index()] == Some(KuhnAction::Pass)
+        if state.actions[state.next_player_id.index()] == Some(KuhnAction::Bet)
+            && state.actions[state.next_player_id.opponent().index()] == Some(KuhnAction::Pass)
         {
             // opponent folded
             return true;
         }
-        self.actions.iter().all(|a| *a == Some(KuhnAction::Pass))
-            || self.actions.iter().all(|a| *a == Some(KuhnAction::Bet))
+        state.actions.iter().all(|a| *a == Some(KuhnAction::Pass))
+            || state.actions.iter().all(|a| *a == Some(KuhnAction::Bet))
     }
 
-    fn get_payouts(&self) -> [f64; 2] {
-        if self.actions[0] == Some(KuhnAction::Bet) && self.actions[1] == Some(KuhnAction::Pass) {
+    fn get_payouts(&self, state: &Self::State) -> [f64; 2] {
+        if state.actions[0] == Some(KuhnAction::Bet) && state.actions[1] == Some(KuhnAction::Pass) {
             // player 1 folded.
             return [1.0, -1.0];
         }
 
-        let win = self.cards[0] > self.cards[1];
-        match (self.actions[0], self.actions[1]) {
+        let win = state.cards[0] > state.cards[1];
+        match (state.actions[0], state.actions[1]) {
             (Some(KuhnAction::Pass), Some(KuhnAction::Bet)) => [-1.0, 1.0], // ante
             (Some(KuhnAction::Bet), Some(KuhnAction::Pass)) => [1.0, -1.0],
             (Some(KuhnAction::Pass), Some(KuhnAction::Pass)) => {
@@ -162,7 +171,7 @@ impl GameState for KuhnState {
         }
     }
 
-    fn get_node_player_id(&self) -> super::PlayerId {
-        self.next_player_id
+    fn get_node_player_id(&self, state: &Self::State) -> super::PlayerId {
+        state.next_player_id
     }
 }

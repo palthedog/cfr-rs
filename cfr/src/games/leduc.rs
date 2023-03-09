@@ -5,7 +5,7 @@ use log::debug;
 use more_asserts::debug_assert_ge;
 
 use super::{
-    GameState,
+    Game,
     PlayerId,
 };
 
@@ -254,12 +254,21 @@ impl LeducState {
     }
 }
 
-impl GameState for LeducState {
+pub struct Leduc {}
+
+impl Leduc {
+    pub fn new() -> Self {
+        Self {}
+    }
+}
+
+impl Game for Leduc {
+    type State = LeducState;
     type InfoSet = LeducInfoSet;
     type Action = LeducAction;
 
-    fn new_root() -> Self {
-        Self {
+    fn new_root(&self) -> Self::State {
+        Self::State {
             next_player_id: PlayerId::Chance,
             round: LeducRound::Preflop,
             actions: vec![],
@@ -270,12 +279,12 @@ impl GameState for LeducState {
         }
     }
 
-    fn to_info_set(&self) -> Self::InfoSet {
-        self.into()
+    fn to_info_set(&self, state: &Self::State) -> Self::InfoSet {
+        state.into()
     }
 
-    fn is_terminal(&self) -> bool {
-        match self.round {
+    fn is_terminal(&self, state: &Self::State) -> bool {
+        match state.round {
             LeducRound::Preflop => false,
             LeducRound::Flop => false,
             LeducRound::Folded(_) => true,
@@ -283,24 +292,24 @@ impl GameState for LeducState {
         }
     }
 
-    fn get_payouts(&self) -> [f64; 2] {
-        debug_assert!(self.is_terminal());
+    fn get_payouts(&self, state: &Self::State) -> [f64; 2] {
+        debug_assert!(self.is_terminal(state));
 
         let loser: usize;
         let winner: usize;
-        match self.round {
+        match state.round {
             LeducRound::Folded(pid) => {
                 loser = pid.index();
                 winner = pid.opponent().index();
             }
             LeducRound::ShowDown => {
-                let p = Self::calc_hand_rank([
-                    self.hole_cards.unwrap()[0],
-                    self.community_card.unwrap(),
+                let p = Self::State::calc_hand_rank([
+                    state.hole_cards.unwrap()[0],
+                    state.community_card.unwrap(),
                 ]);
-                let o = Self::calc_hand_rank([
-                    self.hole_cards.unwrap()[1],
-                    self.community_card.unwrap(),
+                let o = Self::State::calc_hand_rank([
+                    state.hole_cards.unwrap()[1],
+                    state.community_card.unwrap(),
                 ]);
                 if p == o {
                     return [0.0, 0.0];
@@ -318,43 +327,43 @@ impl GameState for LeducState {
         }
 
         let mut ret = [0.0, 0.0];
-        ret[winner] = self.bets[loser] as f64;
-        ret[loser] = -self.bets[loser] as f64;
+        ret[winner] = state.bets[loser] as f64;
+        ret[loser] = -state.bets[loser] as f64;
 
         debug!(
             "{} v.s {}, {}  acts: {:?}, payouts: {:?}",
-            self.hole_cards.unwrap()[0],
-            self.hole_cards.unwrap()[1],
-            self.community_card.unwrap(),
-            self.actions,
+            state.hole_cards.unwrap()[0],
+            state.hole_cards.unwrap()[1],
+            state.community_card.unwrap(),
+            state.actions,
             ret
         );
 
         ret
     }
 
-    fn get_node_player_id(&self) -> super::PlayerId {
-        self.next_player_id
+    fn get_node_player_id(&self, state: &Self::State) -> super::PlayerId {
+        state.next_player_id
     }
 
-    fn with_action(&self, action: LeducAction) -> Self {
-        let mut next = self.clone();
+    fn with_action(&self, state: &Self::State, action: LeducAction) -> Self::State {
+        let mut next = state.clone();
         next.update(action);
         next
     }
 
-    fn list_legal_actions(&self) -> Vec<LeducAction> {
+    fn list_legal_actions(&self, state: &Self::State) -> Vec<LeducAction> {
         let mut v = vec![];
         for act in LeducAction::VALUES {
-            if self.is_valid_action(act) {
+            if state.is_valid_action(act) {
                 v.push(act);
             }
         }
         v
     }
 
-    fn list_legal_chance_actions(&self) -> Vec<(Self::Action, f64)> {
-        assert_eq!(LeducRound::Preflop, self.round);
+    fn list_legal_chance_actions(&self, state: &Self::State) -> Vec<(Self::Action, f64)> {
+        assert_eq!(LeducRound::Preflop, state.round);
         let all_cards = Card::get_all();
         let len = count_permutations(all_cards.len(), 3);
         let all_combinations = all_cards.iter().permutations(3);

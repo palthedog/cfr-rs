@@ -21,10 +21,10 @@ use clap::{
 use cfr::{
     eval::compute_exploitability,
     games::{
-        dudo::DudoState,
-        kuhn::KuhnState,
-        leduc::LeducState,
-        GameState,
+        dudo::Dudo,
+        kuhn::Kuhn,
+        leduc::Leduc,
+        Game,
     },
     solvers::{
         self,
@@ -37,7 +37,7 @@ use log::info;
 #[derive(Parser)]
 struct AppArgs {
     #[clap(long, short, value_enum)]
-    game: Game,
+    game: GameType,
 
     #[clap(flatten)]
     training_args: TrainingArgs,
@@ -62,24 +62,24 @@ pub enum SolverArg {
 }
 
 #[derive(Debug, Clone, Copy, ValueEnum)]
-pub enum Game {
+pub enum GameType {
     Kuhn,
     Dudo,
     Leduc,
 }
 
-fn run<G, S>(training_args: TrainingArgs, solver_args: S::SolverArgs)
+fn run<G, S>(game: G, training_args: TrainingArgs, solver_args: S::SolverArgs)
 where
-    G: GameState,
+    G: Game,
     S: Solver<G>,
 {
-    let mut solver = S::new(solver_args);
+    let mut solver = S::new(game, solver_args);
     train(training_args, &mut solver);
 }
 
 fn train<G, S>(args: TrainingArgs, solver: &mut S)
 where
-    G: GameState,
+    G: Game,
     S: Solver<G>,
 {
     let mut log_writer = if let Some(path) = args.log_path {
@@ -108,9 +108,13 @@ where
         let log_file = log_writer.is_some() && log_file_timer.elapsed() > log_file_freq;
         let log_stdout = log_stdout_timer.elapsed() > *log_stdout_freq;
         if log_file || log_stdout {
-            let exploitability = compute_exploitability(solver);
+            let exploitability = compute_exploitability(solver.game_ref(), solver);
             if log_stdout {
-                info!("epoch {:10}: exploitability: {}", i, compute_exploitability(solver));
+                info!(
+                    "epoch {:10}: exploitability: {}",
+                    i,
+                    compute_exploitability(solver.game_ref(), solver)
+                );
                 info!("Average game value: {}", util / i as f64);
                 log_stdout_timer = Instant::now();
             }
@@ -129,7 +133,7 @@ where
     solver.print_strategy();
 
     // Save/log final result
-    let exploitability = compute_exploitability(solver);
+    let exploitability = compute_exploitability(solver.game_ref(), solver);
     if let Some(mut w) = log_writer {
         writeln!(w, "{},{},{:.12}", i, start_t.elapsed().as_secs(), exploitability)
             .expect("Failed to write");
@@ -143,9 +147,9 @@ where
 macro_rules! def_solver {
     ($solver_t: ty, $game: expr, $($solver_args:expr),+) => {
         match $game {
-            Game::Kuhn => run::<KuhnState, $solver_t>($($solver_args),+),
-            Game::Dudo => run::<DudoState, $solver_t>($($solver_args),+),
-            Game::Leduc => run::<LeducState, $solver_t>($($solver_args),+),
+            GameType::Kuhn => run::<Kuhn, $solver_t>(Kuhn::new(), $($solver_args),+),
+            GameType::Dudo => run::<Dudo, $solver_t>(Dudo::new(), $($solver_args),+),
+            GameType::Leduc => run::<Leduc, $solver_t>(Leduc::new(), $($solver_args),+),
         };
     };
 }

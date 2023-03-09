@@ -35,9 +35,13 @@ impl PlayerId {
     }
 }
 
-pub trait GameState:
-    Clone + std::fmt::Debug + std::hash::Hash + std::cmp::Eq + std::cmp::PartialOrd + std::cmp::Ord
-{
+pub trait Game {
+    type State: Clone
+        + std::fmt::Debug
+        + std::hash::Hash
+        + std::cmp::Eq
+        + std::cmp::PartialOrd
+        + std::cmp::Ord;
     type InfoSet: Clone
         + std::fmt::Display
         + std::fmt::Debug
@@ -47,21 +51,20 @@ pub trait GameState:
         + std::cmp::Ord;
     type Action: Copy + std::fmt::Display + std::fmt::Debug + std::cmp::Eq + std::hash::Hash;
 
-    fn new_root() -> Self;
+    fn new_root(&self) -> Self::State;
 
-    fn to_info_set(&self) -> Self::InfoSet;
+    fn to_info_set(&self, state: &Self::State) -> Self::InfoSet;
 
-    fn is_terminal(&self) -> bool;
+    fn is_terminal(&self, state: &Self::State) -> bool;
 
     // TODO: Make it vector or scalar (but with an argument player_id)
-    fn get_payouts(&self) -> [f64; 2];
+    fn get_payouts(&self, state: &Self::State) -> [f64; 2];
 
-    fn get_node_player_id(&self) -> PlayerId;
+    fn get_node_player_id(&self, state: &Self::State) -> PlayerId;
 
-    fn with_action(&self, action: Self::Action) -> Self;
-
-    fn list_legal_actions(&self) -> Vec<Self::Action>;
-    fn list_legal_chance_actions(&self) -> Vec<(Self::Action, f64)> {
+    fn with_action(&self, state: &Self::State, action: Self::Action) -> Self::State;
+    fn list_legal_actions(&self, state: &Self::State) -> Vec<Self::Action>;
+    fn list_legal_chance_actions(&self, _state: &Self::State) -> Vec<(Self::Action, f64)> {
         todo!();
     }
 }
