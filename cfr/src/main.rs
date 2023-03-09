@@ -4,11 +4,10 @@ use std::{
         BufWriter,
         Write,
     },
+    ops::Div,
     path::PathBuf,
-    time::{
-        Duration,
-        Instant,
-    },
+    str::FromStr,
+    time::Instant,
 };
 
 use clap::{
@@ -32,6 +31,7 @@ use cfr::{
         Solver,
     },
 };
+use humantime::Duration;
 use log::info;
 
 #[derive(Parser)]
@@ -48,8 +48,8 @@ struct AppArgs {
 
 #[derive(Args)]
 struct TrainingArgs {
-    #[clap(long, short, value_parser, default_value_t = 1000)]
-    iterations: usize,
+    #[clap(long, short, value_parser, default_value = "5s")]
+    duration: Duration,
 
     #[clap(long, short, value_parser, value_hint(ValueHint::FilePath))]
     log_path: Option<PathBuf>,
@@ -93,30 +93,51 @@ where
         None
     };
 
+    let log_file_freq = args.duration.div(100);
+    let log_stdout_freq = Duration::from_str("10s").unwrap();
+    let mut log_file_timer = Instant::now();
+    let mut log_stdout_timer = Instant::now();
     let mut util = 0.0;
     let start_t = Instant::now();
-    let mut timer = Instant::now();
-    for i in 0..args.iterations {
+    let mut i = 0;
+    loop {
         util += solver.train_one_epoch();
-        if timer.elapsed() > Duration::from_secs(5) {
+        if start_t.elapsed() > *args.duration {
+            break;
+        }
+        let log_file = log_writer.is_some() && log_file_timer.elapsed() > log_file_freq;
+        let log_stdout = log_stdout_timer.elapsed() > *log_stdout_freq;
+        if log_file || log_stdout {
             let exploitability = compute_exploitability(solver);
-            info!("epoch {:10}: exploitability: {}", i, compute_exploitability(solver));
-            info!("Average game value: {}", util / i as f64);
+            if log_stdout {
+                info!("epoch {:10}: exploitability: {}", i, compute_exploitability(solver));
+                info!("Average game value: {}", util / i as f64);
+                log_stdout_timer = Instant::now();
+            }
 
-            if let Some(w) = &mut log_writer {
+            if log_file {
+                let w = log_writer.as_mut().unwrap();
                 writeln!(w, "{},{},{:.12}", i, start_t.elapsed().as_secs(), exploitability)
                     .expect("Failed to write");
                 w.flush().expect("Failed to flush");
+                log_file_timer = Instant::now();
             }
-
-            timer = Instant::now();
         }
+        i += 1;
     }
     info!("Training has finished");
     solver.print_strategy();
 
-    info!("Average game value: {}", util / args.iterations as f64);
-    info!("exploitability: {}", compute_exploitability(solver));
+    // Save/log final result
+    let exploitability = compute_exploitability(solver);
+    if let Some(mut w) = log_writer {
+        writeln!(w, "{},{},{:.12}", i, start_t.elapsed().as_secs(), exploitability)
+            .expect("Failed to write");
+        w.flush().expect("Failed to flush");
+    }
+
+    info!("Average game value: {}", util / i as f64);
+    info!("exploitability: {}", exploitability);
 }
 
 macro_rules! def_solver {

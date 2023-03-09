@@ -136,8 +136,11 @@ where
 }
 
 impl<G: GameState> Strategy<G> for Trainer<G> {
-    fn get_strategy(&self, info_set: &<G as GameState>::InfoSet) -> Vec<f64> {
-        self.nodes.borrow().get(info_set).unwrap().borrow().to_average_strategy()
+    fn get_strategy(&self, info_set: &<G as GameState>::InfoSet) -> Option<Vec<f64>> {
+        match self.nodes.borrow().get(info_set) {
+            Some(node) => Some(node.borrow().to_average_strategy()),
+            None => None,
+        }
     }
 }
 

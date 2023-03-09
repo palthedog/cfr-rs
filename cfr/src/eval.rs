@@ -1,10 +1,7 @@
 use std::collections::HashMap;
 
 use itertools::Itertools;
-use log::{
-    debug,
-    info,
-};
+use log::debug;
 use more_asserts::assert_ge;
 
 use crate::games::{
@@ -13,21 +10,42 @@ use crate::games::{
 };
 
 pub trait Strategy<S: GameState> {
-    fn get_strategy(&self, info_set: &S::InfoSet) -> Vec<f64>;
+    // TODO: Make it alloc-free.
+    // e.g.
+    //  - sample(rng, actions: &[Action]) -> Action
+    //  - get_strategy(buf: &mut &[f64])
+    fn get_strategy(&self, info_set: &S::InfoSet) -> Option<Vec<f64>>;
+
+    fn safe_get_strategy(&self, actions_len: usize, info_set: &S::InfoSet) -> Vec<f64> {
+        match self.get_strategy(&info_set) {
+            Some(s) => s,
+            None => vec![1.0 / actions_len as f64; actions_len],
+        }
+    }
 }
 
 fn max_index(values: &[f64]) -> usize {
     values.iter().enumerate().max_by(|(_i, a), (_j, b)| a.total_cmp(b)).map(|(i, _)| i).unwrap()
 }
 
+fn best_response_utils_to_pure_strategy<G: GameState>(
+    values: &HashMap<G::InfoSet, Vec<f64>>,
+) -> HashMap<G::InfoSet, Vec<f64>> {
+    values
+        .iter()
+        .map(|e| {
+            let utils = e.1;
+            let index = max_index(utils);
+            let mut pure_strategy = vec![0.0; utils.len()];
+            pure_strategy[index] = 1.0;
+            (e.0.clone(), pure_strategy)
+        })
+        .collect()
+}
+
 impl<S: GameState> Strategy<S> for HashMap<S::InfoSet, Vec<f64>> {
-    fn get_strategy(&self, info_set: &<S as GameState>::InfoSet) -> Vec<f64> {
-        // pure strategy
-        let utils = self.get(info_set).unwrap();
-        let index = max_index(utils);
-        let mut s = vec![0.0; utils.len()];
-        s[index] = 1.0;
-        s
+    fn get_strategy(&self, info_set: &<S as GameState>::InfoSet) -> Option<Vec<f64>> {
+        Some(self.get(info_set).unwrap().clone())
     }
 }
 
@@ -96,7 +114,7 @@ pub fn calc_reach_probabilities<S: GameState, St: Strategy<S>>(
         }
     } else {
         // the opponent player plays as the trained strategy.
-        let strategy_ary = strategy.get_strategy(&info_set);
+        let strategy_ary = strategy.safe_get_strategy(actions.len(), &info_set);
         for (i, act) in actions.iter().enumerate() {
             let prob = strategy_ary[i];
             let next_state = state.with_action(*act);
@@ -186,7 +204,7 @@ pub fn calc_best_response_value<S: GameState, St: Strategy<S>>(
 
     // the opponent player plays as the trained strategy.
     let info_set = state.to_info_set();
-    let strategy_ary = strategy.get_strategy(&info_set);
+    let strategy_ary = strategy.safe_get_strategy(actions.len(), &info_set);
     let mut node_util = 0.0;
     for (i, act) in actions.iter().enumerate() {
         let act_prob = strategy_ary[i];
@@ -228,16 +246,17 @@ where
         }
         return node_util;
     }
+    let actions = state.list_legal_actions();
     let info_set = state.to_info_set();
     let strategy = match state.get_node_player_id() {
-        PlayerId::Player(0) => strategy0.get_strategy(&info_set),
-        PlayerId::Player(1) => strategy1.get_strategy(&info_set),
+        PlayerId::Player(0) => strategy0.safe_get_strategy(actions.len(), &info_set),
+        PlayerId::Player(1) => strategy1.safe_get_strategy(actions.len(), &info_set),
         PlayerId::Player(_) => panic!(),
         PlayerId::Chance => todo!(),
     };
     debug!("p: {:?}, infoset: {}, strategy: {:?}", state.get_node_player_id(), info_set, strategy);
     let mut ev = 0.0;
-    for (i, act) in state.list_legal_actions().iter().enumerate() {
+    for (i, act) in actions.iter().enumerate() {
         let act_value =
             calc_expected_value(player_id, strategy0, strategy1, &state.with_action(*act));
         let prob = strategy[i];
@@ -246,21 +265,24 @@ where
     ev
 }
 
-pub fn compute_exploitability<S: GameState, St: Strategy<S>>(strategy: &St) -> f64 {
-    let root_state = S::new_root();
-    let mut rp0: HashMap<S::InfoSet, ReachProbabilities<S>> = HashMap::new();
-    let mut rp1: HashMap<S::InfoSet, ReachProbabilities<S>> = HashMap::new();
+pub fn compute_exploitability<G: GameState, St: Strategy<G>>(strategy: &St) -> f64 {
+    let root_state = G::new_root();
+    let mut rp0: HashMap<G::InfoSet, ReachProbabilities<G>> = HashMap::new();
+    let mut rp1: HashMap<G::InfoSet, ReachProbabilities<G>> = HashMap::new();
     calc_reach_probabilities(PlayerId::Player(0), strategy, &root_state, 1.0, &mut rp0);
     calc_reach_probabilities(PlayerId::Player(1), strategy, &root_state, 1.0, &mut rp1);
-    let mut brmap0: HashMap<S::InfoSet, Vec<f64>> = HashMap::new();
-    let mut brmap1: HashMap<S::InfoSet, Vec<f64>> = HashMap::new();
-    info!("Calculating best response for player 0");
+    let mut brmap0: HashMap<G::InfoSet, Vec<f64>> = HashMap::new();
+    let mut brmap1: HashMap<G::InfoSet, Vec<f64>> = HashMap::new();
+    debug!("Calculating best response for player 0");
     let br0 =
         calc_best_response_value(&mut brmap0, &rp0, PlayerId::Player(0), strategy, &root_state);
-    info!("Calculating best response for player 1");
+    debug!("Calculating best response for player 1");
     let br1 =
         calc_best_response_value(&mut brmap1, &rp1, PlayerId::Player(1), strategy, &root_state);
-    info!("util_0(br0): {}, util_1(br1): {}", br0, br1);
+    debug!("util_0(br0): {}, util_1(br1): {}", br0, br1);
+
+    let br_pure_strategies0 = best_response_utils_to_pure_strategy::<G>(&brmap0);
+    let br_pure_strategies1 = best_response_utils_to_pure_strategy::<G>(&brmap1);
 
     if log::log_enabled!(log::Level::Debug) {
         debug!("Best responses for Player0");
@@ -282,11 +304,13 @@ pub fn compute_exploitability<S: GameState, St: Strategy<S>>(strategy: &St) -> f
             }
         }
     }
-    let root_state = S::new_root();
-    let ev_0 = calc_expected_value(PlayerId::Player(1), strategy, &brmap1, &root_state);
-    let ev_1 = calc_expected_value(PlayerId::Player(0), &brmap0, strategy, &root_state);
+    let root_state = G::new_root();
+    let ev_0 =
+        calc_expected_value(PlayerId::Player(1), strategy, &br_pure_strategies1, &root_state);
+    let ev_1 =
+        calc_expected_value(PlayerId::Player(0), &br_pure_strategies0, strategy, &root_state);
 
-    info!("util_1(s0, s_br1): {} util_0(s_br0, s1): {}", ev_0, ev_1);
+    debug!("util_1(s0, s_br1): {} util_0(s_br0, s1): {}", ev_0, ev_1);
     let exploitability = (ev_0 + ev_1) / 2.0;
     assert_ge!(exploitability, 0.0, "Exploitability must be positive value.");
     exploitability
