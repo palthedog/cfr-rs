@@ -254,11 +254,28 @@ impl LeducState {
     }
 }
 
-pub struct Leduc {}
+pub struct Leduc {
+    legal_chance_actions: Vec<(LeducAction, f64)>,
+}
 
 impl Leduc {
     pub fn new() -> Self {
-        Self {}
+        Self {
+            legal_chance_actions: Self::create_legal_chance_actions(),
+        }
+    }
+
+    fn create_legal_chance_actions() -> Vec<(LeducAction, f64)> {
+        let all_cards = Card::get_all();
+        let len = count_permutations(all_cards.len(), 3);
+        let all_combinations = all_cards.iter().permutations(3);
+        let prob = 1.0 / len as f64;
+        let mut v = Vec::with_capacity(len);
+        for cards in all_combinations {
+            let act = LeducAction::ChanceDealCards([*cards[0], *cards[1]], *cards[2]);
+            v.push((act, prob));
+        }
+        v
     }
 }
 
@@ -364,16 +381,7 @@ impl Game for Leduc {
 
     fn list_legal_chance_actions(&self, state: &Self::State) -> Vec<(Self::Action, f64)> {
         assert_eq!(LeducRound::Preflop, state.round);
-        let all_cards = Card::get_all();
-        let len = count_permutations(all_cards.len(), 3);
-        let all_combinations = all_cards.iter().permutations(3);
-        let prob = 1.0 / len as f64;
-        let mut v = Vec::with_capacity(len);
-        for cards in all_combinations {
-            let act = LeducAction::ChanceDealCards([*cards[0], *cards[1]], *cards[2]);
-            v.push((act, prob));
-        }
-        v
+        self.legal_chance_actions.clone()
     }
 }
 
