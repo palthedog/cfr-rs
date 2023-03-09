@@ -15,10 +15,9 @@ impl<G> Node<G>
 where
     G: GameState,
 {
-    pub fn new(actions: Vec<G::Action> /*, info_set: S::InfoSet*/) -> Self {
+    pub fn new(actions: Vec<G::Action>) -> Self {
         let act_len = actions.len();
         Self {
-            //info_set,
             actions,
 
             regret_sum: vec![0.0; act_len],
