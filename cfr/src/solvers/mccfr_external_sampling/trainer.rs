@@ -23,9 +23,17 @@ use std::{
 use super::node::Node;
 
 #[derive(Args)]
-pub struct TrainingArgs {
+pub struct SolverArgs {
     #[clap(long, short, value_parser, default_value_t = 42)]
     seed: u64,
+}
+
+impl Default for SolverArgs {
+    fn default() -> Self {
+        SolverArgs {
+            seed: 42,
+        }
+    }
 }
 
 pub struct Trainer<G>
@@ -145,7 +153,7 @@ impl<G: GameState> Strategy<G> for Trainer<G> {
 }
 
 impl<G: GameState> Solver<G> for Trainer<G> {
-    type SolverArgs = TrainingArgs;
+    type SolverArgs = SolverArgs;
 
     fn new(args: Self::SolverArgs) -> Self {
         Trainer {

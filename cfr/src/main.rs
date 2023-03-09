@@ -58,7 +58,7 @@ struct TrainingArgs {
 #[derive(Subcommand)]
 pub enum SolverArg {
     Cfr(solvers::cfr::SolverArgs),
-    MccfrExternalSampling(solvers::mccfr_external_sampling::TrainingArgs),
+    MccfrExternalSampling(solvers::mccfr_external_sampling::SolverArgs),
 }
 
 #[derive(Debug, Clone, Copy, ValueEnum)]
