@@ -13,6 +13,7 @@ pub trait Solver<G: Game>: Strategy<G> {
 
     fn new(game: G, args: Self::SolverArgs) -> Self;
     fn game_ref(&self) -> &G;
+    fn get_touched_nodes_count(&self) -> usize;
     fn train_one_epoch(&mut self) -> f64;
     fn print_strategy(&self);
 }

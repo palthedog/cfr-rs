@@ -27,7 +27,15 @@ struct LogRecord {
     epoch: u32,
 
     elapsed_seconds: u32,
+    touched_nodes: usize,
     exploitability: f64,
+}
+
+impl LogRecord {
+    pub fn get_x(&self) -> u32 {
+        //self.touched_nodes as u32
+        self.elapsed_seconds
+    }
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -85,10 +93,7 @@ fn plot_dir(dir: &DirEntry) -> Result<(), Box<dyn std::error::Error>> {
         let color = Palette99::pick(i).mix(0.8);
         info!("plotting: {}", name);
         chart
-            .draw_series(LineSeries::new(
-                log.iter().map(|r| (r.elapsed_seconds, r.exploitability)),
-                color,
-            ))?
+            .draw_series(LineSeries::new(log.iter().map(|r| (r.get_x(), r.exploitability)), color))?
             .label(name)
             .legend(move |(x, y)| {
                 PathElement::new(vec![(x, y), (x + 20, y)], color.stroke_width(1))
@@ -124,7 +129,7 @@ fn logs_to_range(logs: &Vec<(String, Vec<LogRecord>)>) -> ((u32, u32), (f64, f64
 }
 
 fn log_to_range(v: &Vec<LogRecord>) -> ((u32, u32), (f64, f64)) {
-    let xs = v.iter().map(|r| r.elapsed_seconds).collect::<Vec<_>>();
+    let xs = v.iter().map(|r| r.get_x()).collect::<Vec<_>>();
     let ys = v.iter().map(|r| r.exploitability).collect::<Vec<_>>();
     let xr = (*xs.iter().min().unwrap(), *xs.iter().max().unwrap());
     let yr = (

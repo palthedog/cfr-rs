@@ -27,6 +27,7 @@ where
 {
     game: G,
     nodes: HashMap<G::InfoSet, Node<G>>,
+    touched_nodes_count: usize,
 }
 
 impl<G> Trainer<G>
@@ -38,10 +39,13 @@ where
         Trainer {
             game,
             nodes,
+            touched_nodes_count: 0,
         }
     }
 
     pub fn cfr(&mut self, state: &G::State, actions_prob: [f64; 2]) -> [f64; 2] {
+        self.touched_nodes_count += 1;
+
         if self.game.is_terminal(state) {
             return self.game.get_payouts(state);
         }
@@ -134,7 +138,16 @@ impl<G: Game> Solver<G> for Trainer<G> {
         Trainer {
             game,
             nodes: HashMap::new(),
+            touched_nodes_count: 0,
         }
+    }
+
+    fn game_ref(&self) -> &G {
+        &self.game
+    }
+
+    fn get_touched_nodes_count(&self) -> usize {
+        self.touched_nodes_count
     }
 
     fn train_one_epoch(&mut self) -> f64 {
@@ -143,9 +156,5 @@ impl<G: Game> Solver<G> for Trainer<G> {
 
     fn print_strategy(&self) {
         self.print_nodes();
-    }
-
-    fn game_ref(&self) -> &G {
-        &self.game
     }
 }

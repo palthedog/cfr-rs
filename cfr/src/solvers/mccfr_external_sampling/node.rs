@@ -4,7 +4,6 @@ pub struct Node<G>
 where
     G: Game,
 {
-    //info_set: S::InfoSet,
     pub regret_sum: Vec<f64>,
     pub strategy_sum: Vec<f64>,
 

@@ -43,6 +43,8 @@ where
     game: G,
     nodes: Rc<RefCell<HashMap<G::InfoSet, Rc<RefCell<Node<G>>>>>>,
     rng: WyRng,
+
+    touched_nodes_count: usize,
 }
 
 impl<G> Trainer<G>
@@ -62,6 +64,8 @@ where
     }
 
     pub fn sampling(&mut self, state: &G::State, traverser_id: PlayerId) -> f64 {
+        self.touched_nodes_count += 1;
+
         if self.game.is_terminal(state) {
             return self.game.get_payouts(state)[traverser_id.index()];
         }
@@ -90,7 +94,7 @@ where
             actions = node_cell.get_actions().to_vec();
             strategy = node_cell.regret_matching();
         }
-        assert_eq!(strategy.len(), actions.len());
+        debug_assert_eq!(strategy.len(), actions.len());
 
         if player == traverser_id {
             let mut act_utils: Vec<f64> = Vec::with_capacity(actions.len());
@@ -161,8 +165,9 @@ impl<G: Game> Solver<G> for Trainer<G> {
     fn new(game: G, args: Self::SolverArgs) -> Self {
         Trainer {
             game,
-            rng: WyRng::seed_from_u64(args.seed),
             nodes: Rc::new(RefCell::new(HashMap::new())),
+            rng: WyRng::seed_from_u64(args.seed),
+            touched_nodes_count: 0,
         }
     }
 
@@ -174,5 +179,9 @@ impl<G: Game> Solver<G> for Trainer<G> {
 
     fn game_ref(&self) -> &G {
         &self.game
+    }
+
+    fn get_touched_nodes_count(&self) -> usize {
+        self.touched_nodes_count
     }
 }

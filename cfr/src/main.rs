@@ -87,7 +87,7 @@ where
             panic!("Failed to create a file: {:?}, {}", path, err);
         });
         let mut w = BufWriter::new(f);
-        writeln!(w, "epoch,elapsed_seconds,exploitability").expect("Failed to write");
+        writeln!(w, "epoch,elapsed_seconds,touched_nodes,exploitability").expect("Failed to write");
         Some(w)
     } else {
         None
@@ -121,8 +121,15 @@ where
 
             if log_file {
                 let w = log_writer.as_mut().unwrap();
-                writeln!(w, "{},{},{:.12}", i, start_t.elapsed().as_secs(), exploitability)
-                    .expect("Failed to write");
+                writeln!(
+                    w,
+                    "{},{},{},{:.12}",
+                    i,
+                    start_t.elapsed().as_secs(),
+                    solver.get_touched_nodes_count(),
+                    exploitability
+                )
+                .expect("Failed to write");
                 w.flush().expect("Failed to flush");
                 log_file_timer = Instant::now();
             }
@@ -135,8 +142,15 @@ where
     // Save/log final result
     let exploitability = compute_exploitability(solver.game_ref(), solver);
     if let Some(mut w) = log_writer {
-        writeln!(w, "{},{},{:.12}", i, start_t.elapsed().as_secs(), exploitability)
-            .expect("Failed to write");
+        writeln!(
+            w,
+            "{},{},{},{:.12}",
+            i,
+            start_t.elapsed().as_secs(),
+            solver.get_touched_nodes_count(),
+            exploitability
+        )
+        .expect("Failed to write");
         w.flush().expect("Failed to flush");
     }
 

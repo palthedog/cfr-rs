@@ -296,6 +296,7 @@ impl Game for Leduc {
         }
     }
 
+    #[inline]
     fn to_info_set(&self, state: &Self::State) -> Self::InfoSet {
         state.into()
     }
@@ -359,10 +360,12 @@ impl Game for Leduc {
         ret
     }
 
+    #[inline]
     fn get_node_player_id(&self, state: &Self::State) -> super::PlayerId {
         state.next_player_id
     }
 
+    #[inline]
     fn with_action(&self, state: &Self::State, action: LeducAction) -> Self::State {
         let mut next = state.clone();
         next.update(action);
@@ -370,7 +373,7 @@ impl Game for Leduc {
     }
 
     fn list_legal_actions(&self, state: &Self::State) -> Vec<LeducAction> {
-        let mut v = vec![];
+        let mut v = Vec::with_capacity(LeducAction::VALUES.len());
         for act in LeducAction::VALUES {
             if state.is_valid_action(act) {
                 v.push(act);
@@ -379,8 +382,9 @@ impl Game for Leduc {
         v
     }
 
+    #[inline]
     fn list_legal_chance_actions(&self, state: &Self::State) -> Vec<(Self::Action, f64)> {
-        assert_eq!(LeducRound::Preflop, state.round);
+        debug_assert_eq!(LeducRound::Preflop, state.round);
         self.legal_chance_actions.clone()
     }
 }
