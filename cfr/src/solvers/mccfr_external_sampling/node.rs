@@ -6,6 +6,7 @@ where
 {
     pub regret_sum: Vec<f64>,
     pub strategy_sum: Vec<f64>,
+    pub strategy: Vec<f64>,
 
     pub actions: Vec<G::Action>,
 }
@@ -21,23 +22,32 @@ where
 
             regret_sum: vec![0.0; act_len],
             strategy_sum: vec![0.0; act_len],
+            strategy: vec![0.0; act_len],
         }
     }
 
-    pub fn regret_matching(&self) -> Vec<f64> {
+    pub fn update_strategy_sum(&mut self) {
+        for (i, act_prob) in self.strategy.iter().enumerate() {
+            self.strategy_sum[i] += act_prob;
+        }
+    }
+
+    pub fn regret_matching(&mut self) -> &[f64] {
         let mut sum = 0.0;
-        for act_regret_sum in &self.regret_sum {
-            sum += act_regret_sum.max(0.0);
+        for (i, act_regret_sum) in self.regret_sum.iter().enumerate() {
+            let pos_regret = act_regret_sum.max(0.0);
+            sum += pos_regret;
+            self.strategy[i] = pos_regret;
         }
         if sum <= 0.0 {
             let s = 1.0 / self.regret_sum.len() as f64;
-            return vec![s; self.regret_sum.len()];
+            self.strategy.fill(s);
+            return &self.strategy;
         }
-        let mut strategy = vec![0.0; self.regret_sum.len()];
         for (i, act_regret_sum) in self.regret_sum.iter().enumerate() {
-            strategy[i] = act_regret_sum.max(0.0) / sum;
+            self.strategy[i] = act_regret_sum.max(0.0) / sum;
         }
-        strategy
+        &self.strategy
     }
 
     pub fn to_average_strategy(&self) -> Vec<f64> {

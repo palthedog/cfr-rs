@@ -87,13 +87,9 @@ where
                 Rc::new(RefCell::new(node))
             }),
         );
-        let actions;
-        let strategy;
-        {
-            let node_cell = node.borrow();
-            actions = node_cell.get_actions().to_vec();
-            strategy = node_cell.regret_matching();
-        }
+        let mut node_mut = node.borrow_mut();
+        let actions = node_mut.get_actions().to_vec();
+        let strategy = node_mut.regret_matching();
         debug_assert_eq!(strategy.len(), actions.len());
 
         if player == traverser_id {
@@ -108,7 +104,7 @@ where
             }
 
             // Compute sampled counter factual regret values for each action.
-            let mut node_mut = node.borrow_mut();
+            //let mut node_mut = node.borrow_mut();
             for (i, act_util) in act_utils.iter().enumerate() {
                 let act_regret = act_util - util;
                 node_mut.regret_sum[i] += act_regret;
@@ -125,10 +121,7 @@ where
             // Note that the average strategy is updated on the opponent’s turns to enforce the
             // unbiasedness of the update to the average strategy.
             // (the reach probability of the current history is biased by the opponent's strategy)
-            let mut node_mut = node.borrow_mut();
-            for (i, act_prob) in strategy.iter().enumerate() {
-                node_mut.strategy_sum[i] += act_prob;
-            }
+            node_mut.update_strategy_sum();
 
             util
         }
