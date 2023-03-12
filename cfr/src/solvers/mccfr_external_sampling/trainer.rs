@@ -125,14 +125,6 @@ where
         }
     }
 
-    fn sample_action(&mut self, act_probs: &[(G::Action, f64)]) -> G::Action {
-        let dist = WeightedIndex::new(act_probs.iter().map(|p| p.1)).unwrap_or_else(|e| {
-            panic!("Invalid weights: e: {} probs: {:?}", e, act_probs);
-        });
-        let index = dist.sample(&mut self.rng);
-        act_probs[index].0
-    }
-
     fn sample_index(&mut self, probs: &[f64]) -> usize {
         let dist = WeightedIndex::new(probs).unwrap_or_else(|e| {
             panic!("Invalid weights: e: {} probs: {:?}", e, probs);

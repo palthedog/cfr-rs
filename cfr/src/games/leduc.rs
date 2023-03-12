@@ -6,7 +6,7 @@ use more_asserts::debug_assert_ge;
 use rand::Rng;
 use rand_distr::{
     Distribution,
-    WeightedIndex,
+    WeightedAliasIndex,
 };
 
 use super::{
@@ -101,43 +101,22 @@ impl LeducRound {
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct LeducInfoSet {
-    pub player_id: PlayerId,
-    pub round: LeducRound,
-    pub hole_card: Card,
     pub community_card: Option<Card>,
     pub actions: Vec<LeducAction>,
-
-    // includes blinds
-    pub bets: [i32; 2],
-    // Raise count in this round
-    pub raise_count: i32,
 }
 
 impl From<&LeducState> for LeducInfoSet {
     fn from(state: &LeducState) -> Self {
-        let community_card = match state.round {
-            LeducRound::Preflop => None,
-            _ => state.community_card,
-        };
-
         LeducInfoSet {
-            player_id: state.next_player_id,
-            round: state.round,
-            hole_card: state.hole_cards.unwrap()[state.next_player_id.index()],
-            community_card,
+            community_card: state.community_card,
             actions: state.actions.clone(),
-            bets: state.bets,
-            raise_count: state.raise_count,
         }
     }
 }
 
 impl Display for LeducInfoSet {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "p{}({})", self.player_id.index(), self.hole_card)?;
-        if self.round != LeducRound::Preflop {
-            write!(f, " {}", self.community_card.unwrap())?;
-        }
+        write!(f, "C: {:?}", self.community_card)?;
         write!(f, ": [")?;
         for act in self.actions.iter() {
             write!(f, "{:?}, ", act)?;
@@ -261,15 +240,16 @@ impl LeducState {
 
 pub struct Leduc {
     legal_chance_actions: Vec<(LeducAction, f64)>,
-    chance_node_dist: WeightedIndex<f64>,
+    chance_node_dist: WeightedAliasIndex<f64>,
 }
 
 impl Leduc {
     pub fn new() -> Self {
         let chance_actions = Self::create_legal_chance_actions();
-        let dist = WeightedIndex::new(chance_actions.iter().map(|p| p.1)).unwrap_or_else(|e| {
-            panic!("Invalid weights: e: {} probs: {:?}", e, chance_actions);
-        });
+        let dist = WeightedAliasIndex::new(chance_actions.iter().map(|p| p.1).collect())
+            .unwrap_or_else(|e| {
+                panic!("Invalid weights: e: {} probs: {:?}", e, chance_actions);
+            });
 
         Self {
             legal_chance_actions: chance_actions,
