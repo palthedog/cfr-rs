@@ -111,7 +111,7 @@ where
         } else {
             // The current player is not the traverser
             let action_index = self.sample_index(strategy);
-            let action = node_mut.get_actions()[action_index];
+            let action = actions[action_index];
             let next_state = self.game.with_action(state, action);
             let util = self.sampling(&next_state, traverser_id);
 
