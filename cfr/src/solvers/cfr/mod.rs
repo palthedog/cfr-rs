@@ -1,6 +1,10 @@
 pub mod node;
 
-use std::collections::HashMap;
+use std::{
+    cell::RefCell,
+    collections::HashMap,
+    rc::Rc,
+};
 
 use crate::{
     eval::Strategy,
@@ -26,7 +30,8 @@ where
     G: Game,
 {
     game: G,
-    nodes: HashMap<G::InfoSet, Node<G>>,
+    //nodes: HashMap<G::InfoSet, Node<G>>,
+    nodes: Rc<RefCell<HashMap<G::InfoSet, Rc<RefCell<Node<G>>>>>>,
     touched_nodes_count: usize,
 }
 
@@ -35,7 +40,11 @@ where
     G: Game,
 {
     #[cfg(test)]
-    pub fn new_with_nodes(game: G, _args: SolverArgs, nodes: HashMap<G::InfoSet, Node<G>>) -> Self {
+    pub fn new_with_nodes(
+        game: G,
+        _args: SolverArgs,
+        nodes: Rc<RefCell<HashMap<G::InfoSet, Rc<RefCell<Node<G>>>>>>,
+    ) -> Self {
         Trainer {
             game,
             nodes,
@@ -69,23 +78,26 @@ where
         }
 
         let info_set = self.game.to_info_set(state);
-        let node = self.nodes.entry(info_set.clone()).or_insert_with(|| {
-            let actions = self.game.list_legal_actions(state);
-            Node::new(actions, info_set.clone())
-        });
+        let node = Rc::clone(
+            self.nodes.borrow_mut().entry(self.game.to_info_set(state)).or_insert_with(|| {
+                let actions = self.game.list_legal_actions(state);
+                let node = Node::new(actions, info_set.clone());
+                Rc::new(RefCell::new(node))
+            }),
+        );
+        let mut node_mut = node.borrow_mut();
         let mut node_util = [0.0f64; 2];
 
-        let actions = node.get_actions();
-        let actions_len = actions.len();
+        let actions_len = node_mut.get_actions().len();
         assert_gt!(actions_len, 0);
         debug!("CFR state: {:#?}", state);
-        debug!("legal actions: {:#?}", node.get_actions());
+        debug!("legal actions: {:#?}", node_mut.get_actions());
 
         let mut player_action_utils = vec![0.0; actions_len]; // Note: allocating array on the stack is faster.
         let realization_weight = actions_prob[player.index()];
-        node.regret_matching(realization_weight);
-        let strategy = node.get_strategy();
-        for (i, act) in actions.iter().enumerate() {
+        node_mut.regret_matching(realization_weight);
+        let strategy = node_mut.get_strategy();
+        for (i, act) in node_mut.get_actions().iter().enumerate() {
             let action_prob = strategy[i];
             let next_state = self.game.with_action(state, *act);
             let mut next_actions_prob = actions_prob;
@@ -100,11 +112,10 @@ where
         }
 
         let opponent = player.opponent();
-        let node = self.nodes.get_mut(&info_set).unwrap();
         for (i, action_util) in player_action_utils.iter().enumerate() {
             let regret: f64 = action_util - node_util[player.index()];
             let opponent_prob = actions_prob[opponent.index()];
-            node.add_regret_sum(i, regret, opponent_prob);
+            node_mut.add_regret_sum(i, regret, opponent_prob);
         }
 
         node_util
@@ -116,11 +127,12 @@ where
     }
 
     fn print_nodes(&self) {
-        let mut nodes: Vec<&Node<G>> = self.nodes.values().collect();
+        let nodes = self.nodes.borrow();
+        let mut nodes: Vec<_> = nodes.values().collect();
         nodes.sort();
         info!("Nodes [");
         for node in nodes {
-            info!("    {}", node);
+            info!("    {}", node.borrow());
         }
         info!("]");
     }
@@ -128,7 +140,7 @@ where
 
 impl<G: Game> Strategy<G> for Trainer<G> {
     fn get_strategy(&self, info_set: &<G as Game>::InfoSet) -> Option<Vec<f64>> {
-        Some(self.nodes.get(info_set).unwrap().to_average_strategy())
+        Some(self.nodes.borrow().get(info_set).unwrap().borrow().to_average_strategy())
     }
 }
 
@@ -138,7 +150,7 @@ impl<G: Game> Solver<G> for Trainer<G> {
     fn new(game: G, _args: Self::SolverArgs) -> Self {
         Trainer {
             game,
-            nodes: HashMap::new(),
+            nodes: Rc::new(RefCell::new(HashMap::new())),
             touched_nodes_count: 0,
         }
     }

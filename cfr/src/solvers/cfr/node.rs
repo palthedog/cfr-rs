@@ -32,8 +32,8 @@ where
         }
     }
 
-    pub fn get_actions(&self) -> Vec<G::Action> {
-        self.actions.clone()
+    pub fn get_actions(&self) -> &[G::Action] {
+        &self.actions
     }
 
     pub fn regret_matching(&mut self, realization_weight: f64) {
@@ -55,9 +55,6 @@ where
             debug_assert_ge!(self.strategy[i], 0.0);
             self.strategy_sum[i] += realization_weight * self.strategy[i];
         }
-
-        // How can I prevent cloning the array here?
-        //self.strategy.clone()
     }
 
     pub fn get_strategy(&self) -> &[f64] {
