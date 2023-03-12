@@ -74,8 +74,7 @@ where
 
         if player == PlayerId::Chance {
             // Sample an chance action and traverse its sub-tree.
-            let actions = self.game.list_legal_chance_actions(state);
-            let action = self.sample_action(&actions);
+            let action = self.game.sample_chance_action(&mut self.rng, state);
             let next_state = self.game.with_action(state, action);
             return self.sampling(&next_state, traverser_id);
         }

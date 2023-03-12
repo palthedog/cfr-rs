@@ -1,3 +1,9 @@
+use rand::Rng;
+use rand_distr::{
+    Distribution,
+    WeightedIndex,
+};
+
 pub mod dudo;
 pub mod kuhn;
 pub mod leduc;
@@ -66,5 +72,14 @@ pub trait Game {
     fn list_legal_actions(&self, state: &Self::State) -> Vec<Self::Action>;
     fn list_legal_chance_actions(&self, _state: &Self::State) -> Vec<(Self::Action, f64)> {
         todo!();
+    }
+    fn sample_chance_action<R: Rng>(&self, rng: &mut R, state: &Self::State) -> Self::Action {
+        let actions = self.list_legal_chance_actions(state);
+
+        let dist = WeightedIndex::new(actions.iter().map(|p| p.1)).unwrap_or_else(|e| {
+            panic!("Invalid weights: e: {} probs: {:?}", e, actions);
+        });
+        let index = dist.sample(rng);
+        actions[index].0
     }
 }

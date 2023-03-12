@@ -3,6 +3,11 @@ use std::fmt::Display;
 use itertools::Itertools;
 use log::debug;
 use more_asserts::debug_assert_ge;
+use rand::Rng;
+use rand_distr::{
+    Distribution,
+    WeightedIndex,
+};
 
 use super::{
     Game,
@@ -256,12 +261,19 @@ impl LeducState {
 
 pub struct Leduc {
     legal_chance_actions: Vec<(LeducAction, f64)>,
+    chance_node_dist: WeightedIndex<f64>,
 }
 
 impl Leduc {
     pub fn new() -> Self {
+        let chance_actions = Self::create_legal_chance_actions();
+        let dist = WeightedIndex::new(chance_actions.iter().map(|p| p.1)).unwrap_or_else(|e| {
+            panic!("Invalid weights: e: {} probs: {:?}", e, chance_actions);
+        });
+
         Self {
-            legal_chance_actions: Self::create_legal_chance_actions(),
+            legal_chance_actions: chance_actions,
+            chance_node_dist: dist,
         }
     }
 
@@ -386,6 +398,12 @@ impl Game for Leduc {
     fn list_legal_chance_actions(&self, state: &Self::State) -> Vec<(Self::Action, f64)> {
         debug_assert_eq!(LeducRound::Preflop, state.round);
         self.legal_chance_actions.clone()
+    }
+
+    fn sample_chance_action<R: Rng>(&self, rng: &mut R, state: &Self::State) -> Self::Action {
+        debug_assert_eq!(LeducRound::Preflop, state.round);
+        let index = self.chance_node_dist.sample(rng);
+        self.legal_chance_actions[index].0
     }
 }
 
