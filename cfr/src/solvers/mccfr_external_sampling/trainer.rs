@@ -79,20 +79,20 @@ where
             return self.sampling(&next_state, traverser_id);
         }
 
-        let nodes = Rc::clone(&self.nodes);
         let node = Rc::clone(
-            nodes.borrow_mut().entry(self.game.to_info_set(state)).or_insert_with(|| {
+            self.nodes.borrow_mut().entry(self.game.to_info_set(state)).or_insert_with(|| {
                 let node = Node::new(self.game.list_legal_actions(state));
                 Rc::new(RefCell::new(node))
             }),
         );
         let mut node_mut = node.borrow_mut();
-        let actions = node_mut.get_actions().to_vec();
-        let strategy = node_mut.regret_matching();
+        node_mut.regret_matching();
+        let strategy = node_mut.get_strategy();
+        let actions = node_mut.get_actions();
         debug_assert_eq!(strategy.len(), actions.len());
 
         if player == traverser_id {
-            let mut act_utils: Vec<f64> = Vec::with_capacity(actions.len());
+            let mut act_utils: Vec<f64> = Vec::with_capacity(strategy.len());
             let mut util = 0.0;
             // Compute action utils
             for (i, act) in actions.iter().enumerate() {
@@ -103,7 +103,6 @@ where
             }
 
             // Compute sampled counter factual regret values for each action.
-            //let mut node_mut = node.borrow_mut();
             for (i, act_util) in act_utils.iter().enumerate() {
                 let act_regret = act_util - util;
                 node_mut.regret_sum[i] += act_regret;
@@ -111,8 +110,8 @@ where
             util
         } else {
             // The current player is not the traverser
-            let action_index = self.sample_index(&strategy);
-            let action = actions[action_index];
+            let action_index = self.sample_index(strategy);
+            let action = node_mut.get_actions()[action_index];
             let next_state = self.game.with_action(state, action);
             let util = self.sampling(&next_state, traverser_id);
 

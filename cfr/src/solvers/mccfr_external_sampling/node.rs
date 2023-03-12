@@ -32,7 +32,7 @@ where
         }
     }
 
-    pub fn regret_matching(&mut self) -> &[f64] {
+    pub fn regret_matching(&mut self) {
         let mut sum = 0.0;
         for (i, act_regret_sum) in self.regret_sum.iter().enumerate() {
             let pos_regret = act_regret_sum.max(0.0);
@@ -42,11 +42,15 @@ where
         if sum <= 0.0 {
             let s = 1.0 / self.regret_sum.len() as f64;
             self.strategy.fill(s);
-            return &self.strategy;
+        } else {
+            for (i, act_regret_sum) in self.regret_sum.iter().enumerate() {
+                self.strategy[i] = act_regret_sum.max(0.0) / sum;
+            }
         }
-        for (i, act_regret_sum) in self.regret_sum.iter().enumerate() {
-            self.strategy[i] = act_regret_sum.max(0.0) / sum;
-        }
+    }
+
+    #[inline]
+    pub fn get_strategy(&self) -> &[f64] {
         &self.strategy
     }
 
