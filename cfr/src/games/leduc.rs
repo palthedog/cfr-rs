@@ -101,6 +101,7 @@ impl LeducRound {
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct LeducInfoSet {
+    pub hole_card: Card,
     pub community_card: Option<Card>,
     pub actions: Vec<LeducAction>,
 }
@@ -108,6 +109,7 @@ pub struct LeducInfoSet {
 impl From<&LeducState> for LeducInfoSet {
     fn from(state: &LeducState) -> Self {
         LeducInfoSet {
+            hole_card: state.hole_cards.unwrap()[state.next_player_id.index()],
             community_card: state.community_card,
             actions: state.actions.clone(),
         }
