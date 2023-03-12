@@ -135,10 +135,7 @@ where
 
 impl<G: Game> Strategy<G> for Trainer<G> {
     fn get_strategy(&self, info_set: &<G as Game>::InfoSet) -> Option<Vec<f64>> {
-        match self.nodes.borrow().get(info_set) {
-            Some(node) => Some(node.borrow().to_average_strategy()),
-            None => None,
-        }
+        self.nodes.borrow().get(info_set).map(|node| node.borrow().to_average_strategy())
     }
 }
 
