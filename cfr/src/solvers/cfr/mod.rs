@@ -83,7 +83,8 @@ where
 
         let mut player_action_utils = vec![0.0; actions_len]; // Note: allocating array on the stack is faster.
         let realization_weight = actions_prob[player.index()];
-        let strategy = node.to_strategy(realization_weight);
+        node.regret_matching(realization_weight);
+        let strategy = node.get_strategy();
         for (i, act) in actions.iter().enumerate() {
             let action_prob = strategy[i];
             let next_state = self.game.with_action(state, *act);

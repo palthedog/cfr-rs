@@ -36,7 +36,7 @@ where
         self.actions.clone()
     }
 
-    pub fn to_strategy(&mut self, realization_weight: f64) -> Vec<f64> {
+    pub fn regret_matching(&mut self, realization_weight: f64) {
         let normalizing_sum: f64 = self.regret_sum.iter().filter(|v| **v >= 0.0).sum();
         let actions_len = self.strategy.len();
         if normalizing_sum == 0.0 {
@@ -57,7 +57,11 @@ where
         }
 
         // How can I prevent cloning the array here?
-        self.strategy.clone()
+        //self.strategy.clone()
+    }
+
+    pub fn get_strategy(&self) -> &[f64] {
+        &self.strategy
     }
 
     pub fn to_average_strategy(&self) -> Vec<f64> {
