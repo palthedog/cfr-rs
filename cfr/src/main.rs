@@ -99,7 +99,7 @@ where
     let mut log_stdout_timer = Instant::now();
     let mut util = 0.0;
     let start_t = Instant::now();
-    let mut i = 0;
+    let mut i = 0u64;
     loop {
         util += solver.train_one_epoch();
         if start_t.elapsed() > *args.duration {

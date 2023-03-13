@@ -24,7 +24,7 @@ use serde::Deserialize;
 #[derive(Deserialize)]
 struct LogRecord {
     #[allow(dead_code)]
-    epoch: u32,
+    epoch: u64,
 
     elapsed_seconds: u32,
     touched_nodes: usize,
@@ -61,6 +61,7 @@ fn plot_dir(dir: &DirEntry) -> Result<(), Box<dyn std::error::Error>> {
     root_area.fill(&WHITE)?;
 
     let logs = load_logs(dir);
+    info!("logs.len: {}", logs.len());
     if logs.is_empty() {
         warn!("no log files in {}", dir.path().display());
         return Ok(());
@@ -149,10 +150,14 @@ fn load_logs(dir: &DirEntry) -> Vec<(String, Vec<LogRecord>)> {
         }
     };
     for path in paths {
+        info!("loading: {:?}", path);
         let path = path.unwrap();
-        if let Ok(data) = load_log(&path.path()) {
-            let name = path.file_name().to_string_lossy().to_string();
-            v.push((name, data));
+        match load_log(&path.path()) {
+            Ok(data) => {
+                let name = path.file_name().to_string_lossy().to_string();
+                v.push((name, data));
+            }
+            Err(err) => warn!("failed to load: {:?}, {}", path, err),
         }
     }
     v
