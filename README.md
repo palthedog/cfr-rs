@@ -9,7 +9,7 @@ http://modelai.gettysburg.edu/2013/cfr/cfr.pdf
 ```
 ## Kuhn Poker
 ![kuhn_exploitability](./graphs/kuhn.svg)
-## Dudo Poker
+## Dudo
 ![dudo_exploitability](./graphs/dudo.svg)
 ## Leduc Poker
 ![leduc_exploitability](./graphs/leduc.svg)
