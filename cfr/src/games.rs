@@ -7,6 +7,7 @@ use rand_distr::{
 pub mod dudo;
 pub mod kuhn;
 pub mod leduc;
+pub mod texas_holdem;
 
 // TODO: Make it something like
 // ```
