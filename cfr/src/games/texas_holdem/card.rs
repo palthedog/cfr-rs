@@ -17,7 +17,7 @@ pub fn rank_ch(r: Rank) -> char {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Suit {
     Spade,
     Club,
@@ -61,7 +61,7 @@ pub fn parse_cards(s: &str) -> Vec<Card> {
     cards
 }
 
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Card {
     pub rank: Rank,
     pub suit: Suit,

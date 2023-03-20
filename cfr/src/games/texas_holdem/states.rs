@@ -6,9 +6,11 @@ use std::{
     },
 };
 
+use log::info;
+
 use super::*;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Round {
     Preflop,
     Flop,
@@ -73,7 +75,7 @@ impl Round {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct PlayerState {
     pub stack: i32,
     pub bet: i32,
@@ -116,13 +118,13 @@ impl Default for PlayerState {
     }
 }
 
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Default, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct RoundState {
     pub min_raise_to: i32,
     pub bet_cnt: i32,
 }
 
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Default, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct HandState {
     pub next_player: usize,
     pub last_action: Option<Action>,
@@ -205,6 +207,47 @@ impl HandState {
         not_folded == 1
     }
 
+    pub fn calculate_won_pots(&self) -> HandResult {
+        assert!(
+            self.hand_is_finished(self.round_is_finished())
+                || (self.everyone_all_in() && self.community_cards.len() == 5)
+        );
+
+        let mut scores = Vec::with_capacity(self.players.len());
+        let mut max_score = HandScore::fold();
+        for (i, player) in self.players.iter().enumerate() {
+            let score;
+            if !player.folded {
+                score = hands::calc_player_score(self, player);
+                info!("  score@{}: {}", i, score);
+                max_score = max_score.max(score);
+            } else {
+                score = HandScore::fold();
+                info!("  score@{}: fold", i);
+            }
+            scores.push(score);
+        }
+
+        let mut won_pots = Vec::with_capacity(self.players.len());
+        let mut hands = Vec::with_capacity(self.players.len());
+        let winner_cnt = scores.iter().filter(|&a| *a == max_score).count();
+        let won_amount = self.pot() / winner_cnt as i32;
+        info!("  pot: {}, won: {}, winner_cnt: {}", self.pot(), won_amount, winner_cnt);
+        for (player, score) in self.players.iter().zip(scores.iter()) {
+            let won = if *score == max_score {
+                won_amount - player.bet
+            } else {
+                0 - player.bet
+            };
+            won_pots.push(won);
+            hands.push(*score);
+        }
+        HandResult {
+            won_pots,
+            hands,
+        }
+    }
+
     pub fn dump(&self) -> String {
         let mut s = String::new();
         s.push_str("State\n");
@@ -223,7 +266,7 @@ impl HandState {
     }
 }
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Action {
     Fold,
     Call,

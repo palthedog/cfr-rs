@@ -110,47 +110,6 @@ impl Dealer {
         }
     }
 
-    pub fn calculate_won_pots(&self, s: &HandState) -> HandResult {
-        assert!(
-            s.hand_is_finished(s.round_is_finished())
-                || (s.everyone_all_in() && s.community_cards.len() == 5)
-        );
-
-        let mut scores = Vec::with_capacity(s.players.len());
-        let mut max_score = HandScore::fold();
-        for (i, player) in s.players.iter().enumerate() {
-            let score;
-            if !player.folded {
-                score = hands::calc_player_score(s, player);
-                info!("  score@{}: {}", i, score);
-                max_score = max_score.max(score);
-            } else {
-                score = HandScore::fold();
-                info!("  score@{}: fold", i);
-            }
-            scores.push(score);
-        }
-
-        let mut won_pots = Vec::with_capacity(s.players.len());
-        let mut hands = Vec::with_capacity(s.players.len());
-        let winner_cnt = scores.iter().filter(|&a| *a == max_score).count();
-        let won_amount = s.pot() / winner_cnt as i32;
-        info!("  pot: {}, won: {}, winner_cnt: {}", s.pot(), won_amount, winner_cnt);
-        for (player, score) in s.players.iter().zip(scores.iter()) {
-            let won = if *score == max_score {
-                won_amount - player.bet
-            } else {
-                0 - player.bet
-            };
-            won_pots.push(won);
-            hands.push(*score);
-        }
-        HandResult {
-            won_pots,
-            hands,
-        }
-    }
-
     pub fn init_round_and_deal_cards(&self, s: &mut HandState, deck: &mut Deck, round: Round) {
         self.init_round(s, round);
         self.deal_cards(s, deck);
@@ -194,7 +153,7 @@ impl Dealer {
     pub fn handle_all_in(&self, s: &mut HandState, deck: &mut Deck) -> HandResult {
         let lack = 5 - s.community_cards.len();
         s.community_cards.append(&mut deck.draw_n(lack).to_vec());
-        self.calculate_won_pots(s)
+        s.calculate_won_pots()
     }
 
     pub fn deal_cards(&self, s: &mut HandState, deck: &mut Deck) {
