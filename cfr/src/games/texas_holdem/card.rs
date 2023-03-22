@@ -4,9 +4,22 @@ use std::{
     str,
 };
 
+use more_asserts::{
+    debug_assert_ge,
+    debug_assert_le,
+};
+
 pub type Rank = u8;
 
+#[inline]
+pub fn assert_rank(r: Rank) {
+    debug_assert_ge!(r, 2);
+    debug_assert_le!(r, 14);
+}
+
 pub fn rank_ch(r: Rank) -> char {
+    assert_rank(r);
+
     match r {
         10 => 'T',
         11 => 'J',
@@ -15,6 +28,12 @@ pub fn rank_ch(r: Rank) -> char {
         14 => 'A',
         x => (b'0' + x).into(),
     }
+}
+
+pub fn rank_to_index(r: Rank) -> usize {
+    assert_rank(r);
+
+    14 - r as usize
 }
 
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
@@ -26,6 +45,7 @@ pub enum Suit {
 }
 
 pub const SUITS: [Suit; 4] = [Suit::Spade, Suit::Club, Suit::Heart, Suit::Diamond];
+pub const RANK_COUNT: usize = 13;
 
 pub fn suit_ch(s: Suit) -> char {
     match s {

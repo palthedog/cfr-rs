@@ -18,11 +18,10 @@ use super::{
 use log::info;
 use rand::Rng;
 
-pub struct TexasHoldemPostFlopGame {
+pub struct TexasHoldemGame {
     pub dealer: Dealer,
     pub hand_state: HandState,
-    dealer_pos: usize,
-    deck: Deck,
+    //pub abstraction: Abstraction,
 }
 
 /// An enum which represents a game tree node.
@@ -78,7 +77,7 @@ impl fmt::Display for TexasHoldemInfoSet {
     }
 }
 
-impl Game for TexasHoldemPostFlopGame {
+impl Game for TexasHoldemGame {
     type State = TexasHoldemNode;
 
     type InfoSet = TexasHoldemInfoSet;
@@ -118,7 +117,7 @@ impl Game for TexasHoldemPostFlopGame {
     }
 }
 
-impl TexasHoldemPostFlopGame {
+impl TexasHoldemGame {
     /*
         fn new(dealer: Dealer, deck: Deck, players: Vec<Box<dyn Player>>) -> Self {
             Self {
@@ -165,7 +164,7 @@ impl TexasHoldemPostFlopGame {
     */
 }
 
-impl fmt::Display for TexasHoldemPostFlopGame {
+impl fmt::Display for TexasHoldemGame {
     fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(fmt, "{}", self.hand_state.dump())
     }
