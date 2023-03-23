@@ -45,6 +45,7 @@ pub enum Suit {
 }
 
 pub const SUITS: [Suit; 4] = [Suit::Spade, Suit::Club, Suit::Heart, Suit::Diamond];
+pub const RANKS: std::ops::RangeInclusive<Rank> = 2..=14;
 pub const RANK_COUNT: usize = 13;
 
 pub fn suit_ch(s: Suit) -> char {
@@ -79,6 +80,19 @@ pub fn parse_cards(s: &str) -> Vec<Card> {
         i += 2
     }
     cards
+}
+
+pub fn list_all_cards() -> Vec<Card> {
+    let mut v = Vec::with_capacity(RANKS.len() * SUITS.len());
+    for rank in RANKS {
+        for suit in SUITS {
+            v.push(Card {
+                rank,
+                suit,
+            });
+        }
+    }
+    v
 }
 
 #[derive(Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
