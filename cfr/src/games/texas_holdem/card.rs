@@ -30,6 +30,23 @@ pub fn rank_ch(r: Rank) -> char {
     }
 }
 
+pub fn ch_rank(ch: char) -> Rank {
+    match ch {
+        'T' => 10,
+        'J' => 11,
+        'Q' => 12,
+        'K' => 13,
+        'A' => 14,
+        x => {
+            if x >= '2' && x <= '9' {
+                x as Rank - b'0'
+            } else {
+                panic!();
+            }
+        }
+    }
+}
+
 pub fn rank_to_index(r: Rank) -> usize {
     assert_rank(r);
 

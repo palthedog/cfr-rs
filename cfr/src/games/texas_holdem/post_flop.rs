@@ -22,7 +22,7 @@ pub struct PreflopStrategy {
     /// Preflop strategy is stored as `strategy[rank_y][rank_x]`.
     /// Just like as popular hand range tables
     /// bet/call probabilities for suited hands are stored in upper-right area (x > y) and
-    /// ones for unsuited hands are stored in lower-left area (x <= y).
+    /// ones for off-suited hands are stored in lower-left area (x <= y).
     /// For example:
     ///   strategy[0][0]: AA
     ///   strategy[0][1]: AKs
@@ -180,7 +180,11 @@ mod tests {
 
     use std::str::FromStr;
 
-    use more_asserts::assert_ge;
+    use card::ch_rank;
+    use more_asserts::{
+        assert_ge,
+        assert_lt,
+    };
 
     use super::*;
 
@@ -225,13 +229,38 @@ mod tests {
     #[test]
     fn test_postflop_reach_probabilities() {
         let mut strategy = PreflopStrategy::from_array([[0.0; card::RANK_COUNT]; card::RANK_COUNT]);
-        // AA
-        strategy.set(&Card::from_str("Ah").unwrap(), &Card::from_str("As").unwrap(), 1.0);
-        // T8s
-        strategy.set(&Card::from_str("Ts").unwrap(), &Card::from_str("8s").unwrap(), 0.2);
+        const AA_ACT_PROB: f64 = 1.0;
+        const T8S_ACT_PROB: f64 = 0.2;
+        const OFF_SUITED_COMB: usize = 6; // sc, sh, sd, ch, cd, hd
+        const SUITED_COMB: usize = 4; // s, c, h, d
 
-        let probs = preflop_strategy_to_post_flop_reach_probabilities(&strategy);
-        // AAs (6 combinations) + T8s (4 combinations)
-        assert_eq!(10, probs.len());
+        // AA
+        strategy.set(&Card::from_str("Ah").unwrap(), &Card::from_str("As").unwrap(), AA_ACT_PROB);
+        // T8s
+        strategy.set(&Card::from_str("Ts").unwrap(), &Card::from_str("8s").unwrap(), T8S_ACT_PROB);
+
+        let probs: Vec<([Card; 2], f64)> =
+            preflop_strategy_to_post_flop_reach_probabilities(&strategy);
+        // AA (6 combinations) + T8s (4 combinations)
+        assert_eq!(OFF_SUITED_COMB + SUITED_COMB, probs.len());
+
+        let prob_sum: f64 = probs.iter().map(|(_hand, prob)| prob).sum();
+        assert_lt!((1.0 - prob_sum).abs(), 1e-6);
+
+        let aa_probs: f64 = probs
+            .iter()
+            .filter_map(|(hand, prob)| {
+                if hand[0].rank == ch_rank('A') && hand[1].rank == ch_rank('A') {
+                    Some(prob)
+                } else {
+                    None
+                }
+            })
+            .sum();
+
+        let aa_event_area = OFF_SUITED_COMB as f64 * AA_ACT_PROB;
+        let t8s_event_area = SUITED_COMB as f64 * T8S_ACT_PROB;
+        let expected_aa_probs = aa_event_area / (aa_event_area + t8s_event_area);
+        assert_lt!(aa_probs - expected_aa_probs, 1.0e-6);
     }
 }
