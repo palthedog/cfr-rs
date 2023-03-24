@@ -29,19 +29,19 @@ pub struct TexasHoldemGame {
 #[derive(Debug, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub enum TexasHoldemNode {
     /// a.k.a. Root node
-    DealHands(HandState),
+    DealHands(Vec<TexasHoldemAction>, HandState),
     /// A player takes an action
-    PlayerNode(HandState),
+    PlayerNode(Vec<TexasHoldemAction>, HandState),
     /// The dealer opens 3 community cards
-    OpenFlop(HandState),
+    OpenFlop(Vec<TexasHoldemAction>, HandState),
     /// The dealer opens 1 community card
-    OpenTurn(HandState),
+    OpenTurn(Vec<TexasHoldemAction>, HandState),
     /// The dealer open the last 1 community card
-    OpenRiver(HandState),
+    OpenRiver(Vec<TexasHoldemAction>, HandState),
     /// Everyone did all-in. The dealer would open all community cards.
-    EveryoneAllIn(HandState),
+    EveryoneAllIn(Vec<TexasHoldemAction>, HandState),
     /// a.k.a. Terminal node
-    TerminalNode(HandState),
+    TerminalNode(Vec<TexasHoldemAction>, HandState),
 }
 
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
@@ -69,7 +69,9 @@ impl fmt::Display for TexasHoldemAction {
 }
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
-pub struct TexasHoldemInfoSet {}
+pub struct TexasHoldemInfoSet {
+    actions: Vec<TexasHoldemAction>,
+}
 
 impl fmt::Display for TexasHoldemInfoSet {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {

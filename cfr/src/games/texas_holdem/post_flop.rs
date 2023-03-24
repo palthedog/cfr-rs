@@ -10,12 +10,19 @@ use std::{
 use card::list_all_cards;
 use itertools::Itertools;
 use log::info;
+use rand_distr::WeightedAliasIndex;
+
+use crate::games::Game;
 
 use super::{
     card,
     Card,
     Dealer,
     HandState,
+    TexasHoldemAction,
+    TexasHoldemGame,
+    TexasHoldemInfoSet,
+    TexasHoldemNode,
 };
 
 pub struct PreflopStrategy {
@@ -122,11 +129,71 @@ impl PreflopStrategy {
 }
 
 pub struct TexasHoldemPostFlopGame {
-    pub dealer: Dealer,
-    pub hand_state: HandState,
+    game: TexasHoldemGame,
+
+    opponent_strategy: PreflopStrategy,
+    opponent_hand_probabilities: Vec<([Card; 2], f64)>,
+    opponent_hand_dist: WeightedAliasIndex<f64>,
 }
 
-impl TexasHoldemPostFlopGame {}
+impl TexasHoldemPostFlopGame {
+    pub fn new(game: TexasHoldemGame, opponent_strategy: PreflopStrategy) -> Self {
+        //let hands = card::list_all_cards.c
+        let opponent_hand_probabilities =
+            preflop_strategy_to_post_flop_reach_probabilities(&opponent_strategy);
+
+        let opponent_hand_dist = WeightedAliasIndex::new(
+            opponent_hand_probabilities.iter().map(|(_hand, prob)| *prob).collect(),
+        )
+        .unwrap();
+        Self {
+            game,
+            opponent_strategy,
+            opponent_hand_probabilities,
+            opponent_hand_dist,
+        }
+    }
+}
+
+impl Game for TexasHoldemPostFlopGame {
+    type State = <TexasHoldemGame as Game>::State;
+
+    type InfoSet = <TexasHoldemGame as Game>::InfoSet;
+
+    type Action = <TexasHoldemGame as Game>::Action;
+
+    fn new_root(&self) -> Self::State {
+        todo!()
+    }
+
+    fn to_info_set(&self, state: &Self::State) -> Self::InfoSet {
+        self.game.to_info_set(state)
+    }
+
+    fn is_terminal(&self, state: &Self::State) -> bool {
+        self.game.is_terminal(state)
+    }
+
+    fn get_payouts(&self, state: &Self::State) -> [f64; 2] {
+        self.game.get_payouts(state)
+    }
+
+    fn get_node_player_id(&self, state: &Self::State) -> crate::games::PlayerId {
+        self.game.get_node_player_id(state)
+    }
+
+    fn with_action(&self, state: &Self::State, action: Self::Action) -> Self::State {
+        self.game.with_action(state, action)
+    }
+
+    fn list_legal_actions(&self, state: &Self::State) -> Vec<Self::Action> {
+        self.game.list_legal_actions(state)
+    }
+
+    fn list_legal_chance_actions(&self, state: &Self::State) -> Vec<(Self::Action, f64)> {
+        self.game.list_legal_chance_actions(state)
+    }
+}
 
 /// Calculate reach probabilities of postflop round for each possible opponent's hole cards.
 /// It presumes
