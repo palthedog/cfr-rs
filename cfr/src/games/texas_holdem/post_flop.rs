@@ -1,4 +1,5 @@
 use std::{
+    collections::HashSet,
     fs::File,
     io::{
         BufRead,
@@ -102,7 +103,7 @@ impl PreflopStrategy {
         self.get_from_ranks(card0.rank, card1.rank, card0.suit == card1.suit)
     }
 
-    pub fn get_from_ref_slice(&self, cards: &[&Card]) -> f64 {
+    pub fn get_from_slice(&self, cards: &[Card]) -> f64 {
         debug_assert_eq!(2, cards.len());
         unsafe { self.get(cards.get_unchecked(0), cards.get_unchecked(1)) }
     }
@@ -131,16 +132,22 @@ impl PreflopStrategy {
 pub struct TexasHoldemPostFlopGame {
     game: TexasHoldemGame,
 
+    player_hand: [Card; 2],
+
     opponent_strategy: PreflopStrategy,
     opponent_hand_probabilities: Vec<([Card; 2], f64)>,
     opponent_hand_dist: WeightedAliasIndex<f64>,
 }
 
 impl TexasHoldemPostFlopGame {
-    pub fn new(game: TexasHoldemGame, opponent_strategy: PreflopStrategy) -> Self {
-        //let hands = card::list_all_cards.c
+    pub fn new(
+        game: TexasHoldemGame,
+        player_hand: [Card; 2],
+        opponent_strategy: PreflopStrategy,
+    ) -> Self {
+        let consumed_cards: HashSet<Card> = player_hand.into();
         let opponent_hand_probabilities =
-            preflop_strategy_to_post_flop_reach_probabilities(&opponent_strategy);
+            preflop_strategy_to_post_flop_reach_probabilities(&consumed_cards, &opponent_strategy);
 
         let opponent_hand_dist = WeightedAliasIndex::new(
             opponent_hand_probabilities.iter().map(|(_hand, prob)| *prob).collect(),
@@ -148,6 +155,7 @@ impl TexasHoldemPostFlopGame {
         .unwrap();
         Self {
             game,
+            player_hand,
             opponent_strategy,
             opponent_hand_probabilities,
             opponent_hand_dist,
@@ -216,27 +224,27 @@ impl Game for TexasHoldemPostFlopGame {
 ///             = 1 / (P(B | h0) + P(B | h1) + ... + P(B | h1325))
 /// P(h | B) = P(B|h) / (P(B | h0) + P(B | h1) + ... + P(B | h1325))
 pub fn preflop_strategy_to_post_flop_reach_probabilities(
+    consumed_cards: &HashSet<Card>,
     opponent_strategy: &PreflopStrategy,
 ) -> Vec<([Card; 2], f64)> {
     // Compute P(h) / P(B)
-    let all_cards = list_all_cards();
-    let hole_card_combs: Vec<Vec<&Card>> = all_cards.iter().combinations(2).collect();
+    let all_possible_cards = list_all_cards().into_iter().filter(|c| !consumed_cards.contains(c));
+    let hole_card_combs: Vec<Vec<Card>> = all_possible_cards.combinations(2).collect();
     debug_assert_eq!(52 * 51 / 2, hole_card_combs.len());
 
     // P(h) / P(B) = 1 / (P(B | h0) + P(B | h1) + ... + P(B | h1325))
-    let sum: f64 =
-        hole_card_combs.iter().map(|hand| opponent_strategy.get_from_ref_slice(hand)).sum();
+    let sum: f64 = hole_card_combs.iter().map(|hand| opponent_strategy.get_from_slice(hand)).sum();
     assert!(sum > 0.0, "There is no hand with positive call/bet probability. In that case, there is no chance to play PostFlop game.");
     hole_card_combs
         .iter()
         .filter_map(|hand| {
             // P(h | B) = P(B|h) / (P(B | h0) + P(B | h1) + ... + P(B | h1325))
-            let bet_call_prob = opponent_strategy.get_from_ref_slice(hand);
+            let bet_call_prob = opponent_strategy.get_from_slice(hand);
             if bet_call_prob == 0.0 {
                 None
             } else {
                 let phb: f64 = bet_call_prob / sum;
-                Some(([*hand[0], *hand[1]], phb))
+                Some(([hand[0], hand[1]], phb))
             }
         })
         .collect()
@@ -245,7 +253,10 @@ pub fn preflop_strategy_to_post_flop_reach_probabilities(
 #[cfg(test)]
 mod tests {
 
-    use std::str::FromStr;
+    use std::{
+        collections::hash_set,
+        str::FromStr,
+    };
 
     use card::ch_rank;
     use more_asserts::{
@@ -307,7 +318,7 @@ mod tests {
         strategy.set(&Card::from_str("Ts").unwrap(), &Card::from_str("8s").unwrap(), T8S_ACT_PROB);
 
         let probs: Vec<([Card; 2], f64)> =
-            preflop_strategy_to_post_flop_reach_probabilities(&strategy);
+            preflop_strategy_to_post_flop_reach_probabilities(&Default::default(), &strategy);
         // AA (6 combinations) + T8s (4 combinations)
         assert_eq!(OFF_SUITED_COMB + SUITED_COMB, probs.len());
 
