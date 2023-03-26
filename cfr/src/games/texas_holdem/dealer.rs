@@ -179,7 +179,7 @@ mod tests {
 
     #[test]
     fn test_round_state() {
-        let dealer = Dealer::new(Rule::default());
+        let dealer = Dealer::new(Rule::new_2p_nolimit_reverse_blinds());
         let mut hand_state = HandState::default();
         dealer.init_round(&mut hand_state, Round::Preflop);
 
@@ -255,7 +255,7 @@ mod tests {
 
     #[test]
     fn test_all_in() {
-        let dealer = Dealer::new(Rule::default());
+        let dealer = Dealer::new(Rule::new_2p_nolimit_reverse_blinds());
         let mut hand_state = HandState::default();
         dealer.init_round(&mut hand_state, Round::Preflop);
 
@@ -276,7 +276,7 @@ mod tests {
 
     #[test]
     fn test_update_too_much_raise() {
-        let dealer = Dealer::new(Rule::default());
+        let dealer = Dealer::new(Rule::new_2p_nolimit_reverse_blinds());
         let mut hand_state = HandState::default();
         dealer.init_round(&mut hand_state, Round::Preflop);
 
@@ -295,7 +295,7 @@ mod tests {
 
     #[test]
     fn test_update_too_low_raise() {
-        let dealer = Dealer::new(Rule::default());
+        let dealer = Dealer::new(Rule::new_2p_nolimit_reverse_blinds());
         let mut hand_state = HandState::default();
         dealer.init_round(&mut hand_state, Round::Preflop);
 
@@ -318,7 +318,7 @@ mod tests {
 
     #[test]
     fn test_play() {
-        let dealer = Dealer::new(Rule::default());
+        let dealer = Dealer::new(Rule::new_2p_nolimit_reverse_blinds());
         let mut hand_state = HandState::default();
 
         dealer.init_round(&mut hand_state, Round::Preflop);

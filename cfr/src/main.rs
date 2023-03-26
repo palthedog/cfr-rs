@@ -24,6 +24,10 @@ use cfr::{
         dudo::Dudo,
         kuhn::Kuhn,
         leduc::Leduc,
+        texas_holdem::{
+            new_postflop_game,
+            PostFlopGame,
+        },
         Game,
     },
     solvers::{
@@ -66,6 +70,7 @@ pub enum GameType {
     Kuhn,
     Dudo,
     Leduc,
+    PostFlop,
 }
 
 fn run<G, S>(game: G, training_args: TrainingArgs, solver_args: S::SolverArgs)
@@ -164,6 +169,7 @@ macro_rules! def_solver {
             GameType::Kuhn => run::<Kuhn, $solver_t>(Kuhn::new(), $($solver_args),+),
             GameType::Dudo => run::<Dudo, $solver_t>(Dudo::new(), $($solver_args),+),
             GameType::Leduc => run::<Leduc, $solver_t>(Leduc::new(), $($solver_args),+),
+            GameType::PostFlop => run::<PostFlopGame, $solver_t>(new_postflop_game(), $($solver_args),+),
         };
     };
 }
