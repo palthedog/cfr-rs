@@ -38,7 +38,7 @@ pub fn ch_rank(ch: char) -> Rank {
         'K' => 13,
         'A' => 14,
         x => {
-            if x >= '2' && x <= '9' {
+            if ('2'..='9').contains(&x) {
                 x as Rank - b'0'
             } else {
                 panic!();

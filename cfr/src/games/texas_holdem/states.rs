@@ -11,7 +11,9 @@ use log::info;
 use super::*;
 
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Default)]
 pub enum Round {
+    #[default]
     Preflop,
     Flop,
     Turn,
@@ -44,11 +46,7 @@ pub fn cs_len_to_round(l: usize) -> Round {
     }
 }
 
-impl Default for Round {
-    fn default() -> Round {
-        Round::Preflop
-    }
-}
+
 
 impl fmt::Display for Round {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -120,6 +118,11 @@ impl Default for PlayerState {
 
 #[derive(Debug, Default, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct RoundState {
+    /// Minimum bet/raise amount. It includes bet size even acted in the previous round.
+    /// For example, if
+    /// - bb/sb = 100/50
+    /// - preflop: sb raised to 200, bb called
+    /// - flop: at this point `min_raise_to` would be 300 (min raise amout = 100, bb already bet 200)
     pub min_raise_to: i32,
     pub bet_cnt: i32,
 }
@@ -131,7 +134,7 @@ pub struct HandState {
     pub round: Round,
     pub round_state: RoundState,
 
-    pub my_position: usize,
+    //pub my_position: usize,
     pub community_cards: Vec<Card>,
 
     pub players: Vec<PlayerState>,
@@ -142,6 +145,7 @@ impl HandState {
         &self.players[self.next_player]
     }
 
+    /// Returns the bet size which
     pub fn max_bet(&self) -> i32 {
         self.players.iter().fold(0, |a, p| cmp::max(a, p.bet))
     }

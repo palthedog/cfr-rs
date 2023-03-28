@@ -11,7 +11,7 @@ pub struct Rule {
 
 impl Rule {
     pub fn new_2p_nolimit_reverse_blinds() -> Self {
-        // Based on one in ACPC protocol: holdem.*.2p.reverse_blinds.game
+        // Based on one in ACPC protocol: holdem.nolimit.2p.reverse_blinds.game
         Rule {
             stack: 20_000,
             player_cnt: 2,

@@ -6,21 +6,16 @@ use crate::games::{
 };
 
 use super::{
-    dealer::{
-        Dealer,
-        HandResult,
-        UpdateResult::*,
-    },
-    deck::Deck,
+    dealer::Dealer,
     *,
 };
 
-use log::info;
 use rand::Rng;
 
 pub struct TexasHoldemGame<S: RootNodeSampler> {
     dealer: Dealer,
     root_node_sampler: Option<S>,
+    abstraction: Abstraction,
 }
 
 pub type SubTreeId = usize;
@@ -74,7 +69,7 @@ pub enum TexasHoldemAction {
 }
 
 impl fmt::Display for TexasHoldemAction {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    fn fmt(&self, _f: &mut fmt::Formatter<'_>) -> fmt::Result {
         todo!()
     }
 }
@@ -82,7 +77,7 @@ impl fmt::Display for TexasHoldemAction {
 pub trait RootNodeSampler {
     fn get_sub_tree_count(&self) -> usize;
     fn sample_sub_tree_id<R: Rng>(&self, rng: &mut R) -> SubTreeId;
-    fn get_actions_to_sub_tree_root(&self, id: SubTreeId) -> Vec<TexasHoldemAction>;
+    fn get_hand_state_at_sub_tree_root(&self, id: SubTreeId) -> HandState;
 }
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
@@ -91,7 +86,7 @@ pub struct TexasHoldemInfoSet {
 }
 
 impl fmt::Display for TexasHoldemInfoSet {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    fn fmt(&self, _f: &mut fmt::Formatter<'_>) -> fmt::Result {
         todo!()
     }
 }
@@ -137,7 +132,7 @@ impl<S: RootNodeSampler> Game for TexasHoldemGame<S> {
         }
     }
 
-    fn get_payouts(&self, state: &Self::State) -> [f64; 2] {
+    fn get_payouts(&self, _state: &Self::State) -> [f64; 2] {
         todo!()
     }
 
@@ -149,12 +144,39 @@ impl<S: RootNodeSampler> Game for TexasHoldemGame<S> {
         }
     }
 
-    fn with_action(&self, state: &Self::State, action: Self::Action) -> Self::State {
-        todo!()
+    fn with_action(&self, _state: &Self::State, action: Self::Action) -> Self::State {
+        match action {
+            TexasHoldemAction::DealHands(_, _) => todo!(),
+            TexasHoldemAction::MoveToSubTreeRoot(sub_tree_id) => {
+                let root_state = self
+                    .root_node_sampler
+                    .as_ref()
+                    .unwrap()
+                    .get_hand_state_at_sub_tree_root(sub_tree_id);
+                TexasHoldemNode::PlayerNode(vec![], root_state)
+            }
+            TexasHoldemAction::OpenFlop(_) => todo!(),
+            TexasHoldemAction::OpenTurn(_) => todo!(),
+            TexasHoldemAction::OpenRiver(_) => todo!(),
+            TexasHoldemAction::HandleAllInAtPreFlop(_) => todo!(),
+            TexasHoldemAction::HandleAllInAtFlop(_) => todo!(),
+            TexasHoldemAction::HandleAllInAtTurn(_) => todo!(),
+            TexasHoldemAction::HandleAllInAtRiver() => todo!(),
+            TexasHoldemAction::PlayerAction(_) => todo!(),
+        }
     }
 
     fn list_legal_actions(&self, state: &Self::State) -> Vec<Self::Action> {
-        todo!()
+        match state {
+            TexasHoldemNode::DealHands => todo!(),
+            TexasHoldemNode::SubTreeRoot => todo!(),
+            TexasHoldemNode::OpenFlop(_, _) => todo!(),
+            TexasHoldemNode::OpenTurn(_, _) => todo!(),
+            TexasHoldemNode::OpenRiver(_, _) => todo!(),
+            TexasHoldemNode::EveryoneAllIn(_, _) => todo!(),
+            TexasHoldemNode::TerminalNode(_, _) => todo!(),
+            TexasHoldemNode::PlayerNode(_acts, _state) => todo!(),
+        }
     }
 
     fn list_legal_chance_actions(&self, state: &Self::State) -> Vec<(Self::Action, f64)> {
@@ -174,7 +196,7 @@ impl<S: RootNodeSampler> Game for TexasHoldemGame<S> {
         match state {
             TexasHoldemNode::SubTreeRoot => {
                 let sub_tree_id = self.root_node_sampler.as_ref().unwrap().sample_sub_tree_id(rng);
-                return TexasHoldemAction::MoveToSubTreeRoot(sub_tree_id);
+                TexasHoldemAction::MoveToSubTreeRoot(sub_tree_id)
             }
 
             TexasHoldemNode::DealHands => todo!(),
@@ -200,48 +222,43 @@ impl<S: RootNodeSampler> Game for TexasHoldemGame<S> {
 }
 
 impl<S: RootNodeSampler> TexasHoldemGame<S> {
-    pub fn new(dealer: Dealer, root_node_sampler: Option<S>) -> Self {
+    pub fn new(dealer: Dealer, abstraction: Abstraction, root_node_sampler: Option<S>) -> Self {
         Self {
             dealer,
+            abstraction,
             root_node_sampler,
         }
     }
 
     /*
-    pub fn play_hand<R: Rng>(&mut self, rng: &mut R) -> HandResult {
-        info!("play_hand: dealer: {}", self.dealer_pos);
-        self.deck.shuffle_first_n(rng, 9);
-        self.hand_state = HandState::default();
-        self.dealer.init_round_and_deal_cards(&mut self.hand_state, &mut self.deck, Round::Preflop);
-        loop {
-            let next = (self.dealer_pos + self.hand_state.next_player) % self.players.len();
-            let act = self.players[next].next(&self.hand_state);
-            if let Some(result) = self.step(act) {
-                let result = result.reflect_dealer_pos(self.dealer_pos);
-                self.dealer_pos = (self.dealer_pos + 1) % self.players.len();
-                return result;
+        pub fn play_hand<R: Rng>(&mut self, rng: &mut R) -> HandResult {
+            info!("play_hand: dealer: {}", self.dealer_pos);
+            self.deck.shuffle_first_n(rng, 9);
+            self.hand_state = HandState::default();
+            self.dealer.init_round_and_deal_cards(&mut self.hand_state, &mut self.deck, Round::Preflop);
+            loop {
+                let next = (self.dealer_pos + self.hand_state.next_player) % self.players.len();
+                let act = self.players[next].next(&self.hand_state);
+                if let Some(result) = self.step(act) {
+                    let result = result.reflect_dealer_pos(self.dealer_pos);
+                    self.dealer_pos = (self.dealer_pos + 1) % self.players.len();
+                    return result;
+                }
             }
         }
-    }
-     */
 
-    /*
         fn step(&mut self, state: &mut HandState, act: Action) -> Option<HandResult> {
             let next = self.dealer.update(&mut state, act);
             match next {
                 Keep => None,
                 NextRound(next_round) => {
-                    self.dealer.init_round_and_deal_cards(
-                        &mut self.hand_state,
-                        &mut self.deck,
-                        next_round,
-                    );
+                    self.dealer.init_round_and_deal_cards(state, &mut self.deck, next_round);
                     None
                 }
                 AllIn => Some(self.dealer.handle_all_in(&mut self.hand_state, &mut self.deck)),
                 // Caller must call .init later.
                 NextHand => Some(self.hand_statecalculate_won_pots()),
             }
-        }
-    */
+    }
+             */
 }

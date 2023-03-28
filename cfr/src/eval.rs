@@ -17,7 +17,7 @@ pub trait Strategy<S: Game> {
     fn get_strategy(&self, info_set: &S::InfoSet) -> Option<Vec<f64>>;
 
     fn safe_get_strategy(&self, actions_len: usize, info_set: &S::InfoSet) -> Vec<f64> {
-        match self.get_strategy(&info_set) {
+        match self.get_strategy(info_set) {
             Some(s) => s,
             None => vec![1.0 / actions_len as f64; actions_len],
         }

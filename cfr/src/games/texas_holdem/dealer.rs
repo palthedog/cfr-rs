@@ -1,6 +1,5 @@
 use log::{
     debug,
-    info,
     warn,
 };
 
@@ -58,19 +57,19 @@ impl Dealer {
 
     pub fn update(&self, s: &mut HandState, act: Action) -> UpdateResult {
         let current = s.next_player;
-        s.players[current as usize].took_action = true;
+        s.players[current].took_action = true;
         s.last_action = Some(act);
         debug!("  Action: {:?}", act);
         match act {
             Action::Fold => {
-                s.players[current as usize].folded = true;
+                s.players[current].folded = true;
             }
-            Action::Call => s.players[current as usize].bet = s.max_bet(),
+            Action::Call => s.players[current].bet = s.max_bet(),
             Action::RaiseTo(raise_to) => {
                 let mut raise_to = raise_to;
                 if raise_to < s.round_state.min_raise_to
                     // it's not all-in
-                    && raise_to < s.players[current as usize].stack
+                    && raise_to < s.players[current].stack
                 {
                     warn!(
                         "    Invalid action min-raise: {}, received: {}",
@@ -78,16 +77,16 @@ impl Dealer {
                     );
                     raise_to = s.round_state.min_raise_to;
                 };
-                if raise_to >= s.players[current as usize].stack {
+                if raise_to >= s.players[current].stack {
                     debug!("    Player {}: All-in", current);
-                    raise_to = s.players[current as usize].stack;
+                    raise_to = s.players[current].stack;
                 }
 
                 let diff = raise_to - s.max_bet();
                 s.round_state.min_raise_to = raise_to + diff;
                 s.round_state.bet_cnt += 1;
                 // Must update the bet after check diff.
-                s.players[current as usize].bet = raise_to;
+                s.players[current].bet = raise_to;
                 debug!("    RoundState is updated: {:?}", s.round_state);
             }
         };
