@@ -1,9 +1,6 @@
 use clap::Args;
 
-use crate::{
-    eval::Strategy,
-    games::Game,
-};
+use crate::{eval::Strategy, games::Game};
 
 pub mod cfr;
 pub mod mccfr_external_sampling;

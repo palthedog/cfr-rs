@@ -2,10 +2,7 @@ use std::fmt::Display;
 
 use itertools::Itertools;
 
-use super::{
-    Game,
-    PlayerId,
-};
+use super::{Game, PlayerId};
 
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Card {

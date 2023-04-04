@@ -4,15 +4,9 @@ use itertools::Itertools;
 use log::debug;
 use more_asserts::debug_assert_ge;
 use rand::Rng;
-use rand_distr::{
-    Distribution,
-    WeightedAliasIndex,
-};
+use rand_distr::{Distribution, WeightedAliasIndex};
 
-use super::{
-    Game,
-    PlayerId,
-};
+use super::{Game, PlayerId};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum Rank {
@@ -389,6 +383,6 @@ impl Game for Leduc {
     }
 }
 
-fn count_permutations(n: usize, r: usize) -> usize {
+pub fn count_permutations(n: usize, r: usize) -> usize {
     (n - r + 1..=n).product()
 }

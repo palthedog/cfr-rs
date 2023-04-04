@@ -1,7 +1,4 @@
-use log::{
-    debug,
-    warn,
-};
+use log::{debug, warn};
 
 use super::*;
 
@@ -53,6 +50,10 @@ impl Dealer {
         Dealer {
             rule,
         }
+    }
+
+    pub fn get_rule(&self) -> &Rule {
+        &self.rule
     }
 
     pub fn update(&self, s: &mut HandState, act: Action) -> UpdateResult {
@@ -109,11 +110,6 @@ impl Dealer {
         }
     }
 
-    pub fn init_round_and_deal_cards(&self, s: &mut HandState, deck: &mut Deck, round: Round) {
-        self.init_round(s, round);
-        self.deal_cards(s, deck);
-    }
-
     pub fn init_round(&self, s: &mut HandState, round: Round) {
         for p in &mut s.players {
             // Note that all-in/folded players can't take new actions.
@@ -149,24 +145,44 @@ impl Dealer {
         }
     }
 
-    pub fn handle_all_in(&self, s: &mut HandState, deck: &mut Deck) -> HandResult {
-        let lack = 5 - s.community_cards.len();
-        s.community_cards.append(&mut deck.draw_n(lack).to_vec());
-        s.calculate_won_pots()
-    }
+    pub fn calculate_won_pots(&self, s: &HandState) -> HandResult {
+        assert!(
+            s.hand_is_finished(s.round_is_finished())
+                || (s.everyone_all_in() && s.community_cards.len() == 5)
+        );
 
-    pub fn deal_cards(&self, s: &mut HandState, deck: &mut Deck) {
-        match s.round {
-            Round::Preflop => {
-                for player in &mut s.players {
-                    // TODO: No need of copy the vector?
-                    player.hole_cards = deck.draw_n(2).to_vec();
-                }
+        let mut scores = Vec::with_capacity(s.players.len());
+        let mut max_score = HandScore::fold();
+        for (i, player) in s.players.iter().enumerate() {
+            let score;
+            if !player.folded {
+                score = hands::calc_player_score(s, player);
+                debug!("  score@{}: {}", i, score);
+                max_score = max_score.max(score);
+            } else {
+                score = HandScore::fold();
+                debug!("  score@{}: fold", i);
             }
-            // TODO: ditto?
-            Round::Flop => s.community_cards.append(&mut deck.draw_n(3).to_vec()),
-            // TODO: ditto?
-            Round::Turn | Round::River => s.community_cards.append(&mut deck.draw_n(1).to_vec()),
+            scores.push(score);
+        }
+
+        let mut won_pots = Vec::with_capacity(s.players.len());
+        let mut hands = Vec::with_capacity(s.players.len());
+        let winner_cnt = scores.iter().filter(|&a| *a == max_score).count();
+        let won_amount = s.pot() / winner_cnt as i32;
+        debug!("  pot: {}, won: {}, winner_cnt: {}", s.pot(), won_amount, winner_cnt);
+        for (player, score) in s.players.iter().zip(scores.iter()) {
+            let won = if *score == max_score {
+                won_amount - player.bet
+            } else {
+                0 - player.bet
+            };
+            won_pots.push(won);
+            hands.push(*score);
+        }
+        HandResult {
+            won_pots,
+            hands,
         }
     }
 }

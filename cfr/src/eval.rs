@@ -1,13 +1,10 @@
 use std::collections::HashMap;
 
 use itertools::Itertools;
-use log::debug;
+use log::{debug, info};
 use more_asserts::assert_ge;
 
-use crate::games::{
-    Game,
-    PlayerId,
-};
+use crate::games::{Game, PlayerId};
 
 pub trait Strategy<S: Game> {
     // TODO: Make it alloc-free.
@@ -28,6 +25,7 @@ fn max_index(values: &[f64]) -> usize {
     values.iter().enumerate().max_by(|(_i, a), (_j, b)| a.total_cmp(b)).map(|(i, _)| i).unwrap()
 }
 
+#[allow(dead_code)]
 fn best_response_utils_to_pure_strategy<G: Game>(
     values: &HashMap<G::InfoSet, Vec<f64>>,
 ) -> HashMap<G::InfoSet, Vec<f64>> {
@@ -290,7 +288,9 @@ pub fn compute_exploitability<G: Game, St: Strategy<G>>(game: &G, strategy: &St)
     let root_state = game.new_root();
     let mut rp0: HashMap<G::InfoSet, ReachProbabilities<G>> = HashMap::new();
     let mut rp1: HashMap<G::InfoSet, ReachProbabilities<G>> = HashMap::new();
+    debug!("Calculating reach probabilities for each infoset for player0");
     calc_reach_probabilities(PlayerId::Player(0), strategy, game, &root_state, 1.0, &mut rp0);
+    debug!("Calculating reach probabilities for each infoset for player1");
     calc_reach_probabilities(PlayerId::Player(1), strategy, game, &root_state, 1.0, &mut rp1);
     let mut brmap0: HashMap<G::InfoSet, Vec<f64>> = HashMap::new();
     let mut brmap1: HashMap<G::InfoSet, Vec<f64>> = HashMap::new();
@@ -312,10 +312,9 @@ pub fn compute_exploitability<G: Game, St: Strategy<G>>(game: &G, strategy: &St)
         game,
         &root_state,
     );
-    debug!("util_0(br0): {}, util_1(br1): {}", br0, br1);
-
-    let br_pure_strategies0 = best_response_utils_to_pure_strategy::<G>(&brmap0);
-    let br_pure_strategies1 = best_response_utils_to_pure_strategy::<G>(&brmap1);
+    info!("util_0(br0): {}, util_1(br1): {}", br0, br1);
+    let exploitability = (br0 + br1) / 2.0;
+    assert_ge!(exploitability, 0.0, "Exploitability must be positive value.");
 
     if log::log_enabled!(log::Level::Debug) {
         debug!("Best responses for Player0");
@@ -323,7 +322,7 @@ pub fn compute_exploitability<G: Game, St: Strategy<G>>(game: &G, strategy: &St)
             let br = brmap0.get(info_set).unwrap();
             debug!("{}: {:?}", info_set, br);
             let rp = rp0.get(info_set).unwrap();
-            for (s, prob) in rp.reach_probabilities.iter().sorted_by_key(|(k, _v)| *k) {
+            for (s, prob) in rp.reach_probabilities.iter().sorted_by_key(|(k, _v)| *k).take(100) {
                 debug!("    {:?}: {}", s, prob);
             }
         }
@@ -332,19 +331,23 @@ pub fn compute_exploitability<G: Game, St: Strategy<G>>(game: &G, strategy: &St)
             let br = brmap1.get(info_set).unwrap();
             debug!("{}: {:?}", info_set, br);
             let rp = rp1.get(info_set).unwrap();
-            for (s, prob) in rp.reach_probabilities.iter().sorted_by_key(|(k, _v)| *k) {
+            for (s, prob) in rp.reach_probabilities.iter().sorted_by_key(|(k, _v)| *k).take(100) {
                 debug!("    {:?}: {}", s, prob);
             }
         }
     }
+
+    /*
     let root_state = game.new_root();
+    let br_pure_strategies0 = best_response_utils_to_pure_strategy::<G>(&brmap0);
+    let br_pure_strategies1 = best_response_utils_to_pure_strategy::<G>(&brmap1);
     let ev_0 =
         calc_expected_value(PlayerId::Player(1), strategy, &br_pure_strategies1, game, &root_state);
     let ev_1 =
         calc_expected_value(PlayerId::Player(0), &br_pure_strategies0, strategy, game, &root_state);
-
     debug!("util_1(s0, s_br1): {} util_0(s_br0, s1): {}", ev_0, ev_1);
     let exploitability = (ev_0 + ev_1) / 2.0;
-    assert_ge!(exploitability, 0.0, "Exploitability must be positive value.");
+     */
+
     exploitability
 }

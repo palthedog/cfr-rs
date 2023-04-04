@@ -1,24 +1,15 @@
 use crate::{
     eval::Strategy,
-    games::{
-        Game,
-        PlayerId,
-    },
+    games::{Game, PlayerId},
     solvers::Solver,
 };
 use clap::Args;
+use log::info;
 use rand::SeedableRng;
-use rand_distr::{
-    Distribution,
-    WeightedIndex,
-};
+use rand_distr::{Distribution, WeightedIndex};
 use wyhash::WyRng;
 
-use std::{
-    cell::RefCell,
-    collections::HashMap,
-    rc::Rc,
-};
+use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use super::node::Node;
 
@@ -151,17 +142,25 @@ impl<G: Game> Solver<G> for Trainer<G> {
         }
     }
 
-    fn train_one_epoch(&mut self) -> f64 {
-        self.train_one_epoch()
-    }
-
-    fn print_strategy(&self) {}
-
     fn game_ref(&self) -> &G {
         &self.game
     }
 
     fn get_touched_nodes_count(&self) -> usize {
         self.touched_nodes_count
+    }
+
+    fn train_one_epoch(&mut self) -> f64 {
+        self.train_one_epoch()
+    }
+
+    fn print_strategy(&self) {
+        let nodes = self.nodes.borrow();
+        info!("# of nodes: {}", nodes.len());
+        /*
+        for node in nodes.iter().take(100) {
+            info!("  {:?}", node.0);
+        }
+         */
     }
 }

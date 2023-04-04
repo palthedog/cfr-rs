@@ -6,7 +6,6 @@ use std::{
     },
     ops::Div,
     path::PathBuf,
-    str::FromStr,
     time::Instant,
 };
 
@@ -55,6 +54,9 @@ struct TrainingArgs {
     #[clap(long, short, value_parser, default_value = "5s")]
     duration: Duration,
 
+    #[clap(long, short = 'f', value_parser, default_value = "10s")]
+    log_frequency: Duration,
+
     #[clap(long, short, value_parser, value_hint(ValueHint::FilePath))]
     log_path: Option<PathBuf>,
 }
@@ -99,7 +101,7 @@ where
     };
 
     let log_file_freq = args.duration.div(100);
-    let log_stdout_freq = Duration::from_str("10s").unwrap();
+    let log_stdout_freq = args.log_frequency;
     let mut log_file_timer = Instant::now();
     let mut log_stdout_timer = Instant::now();
     let mut util = 0.0;
@@ -141,7 +143,11 @@ where
         }
         i += 1;
     }
-    info!("Training has finished");
+    info!(
+        "Training has finished. Iteration: {}, elapsed time: {} secs",
+        i,
+        start_t.elapsed().as_secs()
+    );
     solver.print_strategy();
 
     // Save/log final result

@@ -1,8 +1,5 @@
 use rand::Rng;
-use rand_distr::{
-    Distribution,
-    WeightedIndex,
-};
+use rand_distr::{Distribution, WeightedIndex};
 
 pub mod dudo;
 pub mod kuhn;

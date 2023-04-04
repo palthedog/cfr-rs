@@ -1,10 +1,7 @@
 use std::{
     collections::HashSet,
     fs::File,
-    io::{
-        BufRead,
-        BufReader,
-    },
+    io::{BufRead, BufReader},
     path::PathBuf,
 };
 
@@ -12,25 +9,13 @@ use card::list_all_cards;
 use itertools::Itertools;
 use log::info;
 use rand::Rng;
-use rand_distr::{
-    Distribution,
-    WeightedAliasIndex,
-};
+use rand_distr::{Distribution, WeightedAliasIndex};
 
 use crate::games::PlayerId;
 
 use super::{
-    card,
-    Abstraction,
-    Card,
-    Dealer,
-    HandState,
-    PlayerState,
-    RootNodeSampler,
-    RoundState,
-    Rule,
-    SubTreeId,
-    TexasHoldemGame,
+    card, Abstraction, Card, Dealer, HandState, PlayerState, RootNodeSampler, RoundState, Rule,
+    SubTreeId, TexasHoldemGame,
 };
 
 pub struct PreflopStrategy {
@@ -141,8 +126,10 @@ pub struct TexasHoldemPostFlopNodeSampler {
     bet_size: i32,
     community_cards: [Card; 3],
 
+    #[allow(dead_code)]
     opponent_strategy: PreflopStrategy,
-    opponent_hand_probabilities: Vec<([Card; 2], f64)>,
+    opponent_hands: Vec<[Card; 2]>,
+    opponent_hand_probabilities: Vec<f64>,
     opponent_hand_dist: WeightedAliasIndex<f64>,
 }
 
@@ -156,14 +143,18 @@ impl TexasHoldemPostFlopNodeSampler {
 
         opponent_strategy: PreflopStrategy,
     ) -> Self {
-        let consumed_cards: HashSet<Card> = player_hand.into();
-        let opponent_hand_probabilities =
+        let mut consumed_cards: HashSet<Card> = player_hand.into();
+        consumed_cards.extend(community_cards);
+
+        let opponent_hand_probabilities: Vec<([Card; 2], f64)> =
             preflop_strategy_to_post_flop_reach_probabilities(&consumed_cards, &opponent_strategy);
 
-        let opponent_hand_dist = WeightedAliasIndex::new(
-            opponent_hand_probabilities.iter().map(|(_hand, prob)| *prob).collect(),
-        )
-        .unwrap();
+        let hands: Vec<[Card; 2]> =
+            opponent_hand_probabilities.iter().map(|(hand, _prob)| *hand).collect();
+        let probs: Vec<f64> =
+            opponent_hand_probabilities.iter().map(|(_hand, prob)| *prob).collect();
+
+        let opponent_hand_dist = WeightedAliasIndex::new(probs.clone()).unwrap();
         Self {
             rule,
             player_id,
@@ -171,7 +162,8 @@ impl TexasHoldemPostFlopNodeSampler {
             bet_size,
             community_cards,
             opponent_strategy,
-            opponent_hand_probabilities,
+            opponent_hands: hands,
+            opponent_hand_probabilities: probs,
             opponent_hand_dist,
         }
     }
@@ -180,6 +172,10 @@ impl TexasHoldemPostFlopNodeSampler {
 impl RootNodeSampler for TexasHoldemPostFlopNodeSampler {
     fn get_sub_tree_count(&self) -> usize {
         self.opponent_hand_probabilities.len()
+    }
+
+    fn get_sub_tree_reach_probabilities(&self) -> &[f64] {
+        &self.opponent_hand_probabilities
     }
 
     fn sample_sub_tree_id<R: Rng>(&self, rng: &mut R) -> SubTreeId {
@@ -210,7 +206,7 @@ impl RootNodeSampler for TexasHoldemPostFlopNodeSampler {
         // Set hole cards for each players
         hand_state.players[self.player_id.index()].hole_cards = self.player_hand.to_vec();
         hand_state.players[self.player_id.opponent().index()].hole_cards =
-            self.opponent_hand_probabilities[id].0.to_vec();
+            self.opponent_hands[id].to_vec();
 
         // Set community cards
         hand_state.community_cards = self.community_cards.to_vec();
@@ -246,7 +242,6 @@ pub fn preflop_strategy_to_post_flop_reach_probabilities(
     // Compute P(h) / P(B)
     let all_possible_cards = list_all_cards().into_iter().filter(|c| !consumed_cards.contains(c));
     let hole_card_combs: Vec<Vec<Card>> = all_possible_cards.combinations(2).collect();
-    debug_assert_eq!(52 * 51 / 2, hole_card_combs.len());
 
     // P(h) / P(B) = 1 / (P(B | h0) + P(B | h1) + ... + P(B | h1325))
     let sum: f64 = hole_card_combs.iter().map(|hand| opponent_strategy.get_from_slice(hand)).sum();
@@ -271,7 +266,7 @@ pub type PostFlopGame = TexasHoldemGame<TexasHoldemPostFlopNodeSampler>;
 /// Create a new postflop game.
 pub fn new_postflop_game() -> PostFlopGame {
     // The player's player-id is 0.
-    let rule = Rule::new_2p_nolimit_reverse_blinds();
+    let rule = Rule::new_2p_nolimit_reverse_blinds(1000);
     let dealer = Dealer::new(rule.clone());
     let cfg_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("configs/texas_holdem/headsup/preflop_bb_call.txt");
@@ -294,10 +289,7 @@ mod tests {
     use std::str::FromStr;
 
     use card::ch_rank;
-    use more_asserts::{
-        assert_ge,
-        assert_lt,
-    };
+    use more_asserts::{assert_ge, assert_lt};
 
     use super::*;
 

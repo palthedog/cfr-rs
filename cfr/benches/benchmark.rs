@@ -1,20 +1,8 @@
 use cfr::{
-    games::{
-        dudo::Dudo,
-        kuhn::Kuhn,
-        leduc::Leduc,
-        Game,
-    },
-    solvers::{
-        self,
-        Solver,
-    },
+    games::{dudo::Dudo, kuhn::Kuhn, leduc::Leduc, Game},
+    solvers::{self, Solver},
 };
-use criterion::{
-    criterion_group,
-    criterion_main,
-    Criterion,
-};
+use criterion::{criterion_group, criterion_main, Criterion};
 
 fn new_cfr<G: Game>(game: G) -> solvers::cfr::Trainer<G> {
     solvers::cfr::Trainer::<G>::new(game, solvers::cfr::SolverArgs {})

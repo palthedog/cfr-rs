@@ -10,10 +10,10 @@ pub struct Rule {
 }
 
 impl Rule {
-    pub fn new_2p_nolimit_reverse_blinds() -> Self {
+    pub fn new_2p_nolimit_reverse_blinds(stack: i32) -> Self {
         // Based on one in ACPC protocol: holdem.nolimit.2p.reverse_blinds.game
         Rule {
-            stack: 20_000,
+            stack,
             player_cnt: 2,
 
             blinds: vec![100, 50],

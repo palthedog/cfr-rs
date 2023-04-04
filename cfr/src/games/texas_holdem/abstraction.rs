@@ -1,14 +1,9 @@
 use std::collections::HashSet;
 
-use more_asserts::{
-    assert_gt,
-};
+use log::debug;
+use more_asserts::assert_gt;
 
-use super::{
-    Action,
-    HandState,
-    TexasHoldemAction,
-};
+use super::{Action, HandState, TexasHoldemAction};
 
 pub enum BetSize {
     Minimum,
@@ -31,10 +26,13 @@ impl Abstraction {
     }
 
     pub fn new_basic() -> Self {
+        /*
         Self::new(
-            vec![BetSize::Minimum, BetSize::RelativeToPot(0.5), BetSize::RelativeToPot(1.0)],
-            vec![BetSize::Minimum, BetSize::RelativeToPot(0.5), BetSize::RelativeToPot(1.0)],
+            vec![BetSize::RelativeToPot(0.5), BetSize::RelativeToPot(1.0)],
+            vec![BetSize::RelativeToPot(0.5), BetSize::RelativeToPot(1.0)],
         )
+         */
+        Self::new(vec![BetSize::RelativeToPot(1.0)], vec![BetSize::RelativeToPot(1.0)])
     }
 
     pub fn list_actions(&self, state: &HandState) -> Vec<TexasHoldemAction> {
@@ -49,6 +47,8 @@ impl Abstraction {
 
         let mut set = HashSet::new();
         let mut actions = vec![];
+        actions.push(TexasHoldemAction::PlayerAction(Action::Call));
+        actions.push(TexasHoldemAction::PlayerAction(Action::Fold));
         for rule in rules {
             let amount = match rule {
                 BetSize::Minimum => state.round_state.min_raise_to,
@@ -60,10 +60,14 @@ impl Abstraction {
             if amount < state.round_state.min_raise_to {
                 continue;
             }
+            if amount > state.players[state.next_player].stack {
+                continue;
+            }
             if set.insert(amount) {
                 actions.push(TexasHoldemAction::PlayerAction(Action::RaiseTo(amount)));
             }
         }
+        debug!("legal actions: {:?}", actions);
         actions
     }
 }
@@ -71,11 +75,7 @@ impl Abstraction {
 #[cfg(test)]
 mod tests {
 
-    use super::super::{
-        PlayerState,
-        Round,
-        RoundState,
-    };
+    use super::super::{PlayerState, Round, RoundState};
 
     use super::*;
 

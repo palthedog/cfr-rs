@@ -1,17 +1,13 @@
 use std::{
     cmp,
-    fmt::{
-        self,
-        Display,
-    },
+    fmt::{self, Display},
 };
 
 use log::info;
 
-use super::*;
+use super::{cards::Cards, *};
 
-#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
-#[derive(Default)]
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord, Default)]
 pub enum Round {
     #[default]
     Preflop,
@@ -45,8 +41,6 @@ pub fn cs_len_to_round(l: usize) -> Round {
         _ => panic!("Unknown {}", l),
     }
 }
-
-
 
 impl fmt::Display for Round {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -250,6 +244,34 @@ impl HandState {
             won_pots,
             hands,
         }
+    }
+
+    pub fn get_available_cards(&self) -> Cards {
+        let mut available_cards = Cards::new_all();
+        // Pop hole cards
+        for p in &self.players {
+            for c in &p.hole_cards {
+                debug_assert!(
+                    available_cards.contains(c),
+                    "Duplicated card({}) in community/hole cards: {:?}",
+                    *c,
+                    self
+                );
+                available_cards.pop(c);
+            }
+        }
+
+        // Pop community cards
+        for c in &self.community_cards {
+            debug_assert!(
+                available_cards.contains(c),
+                "Duplicated card({}) in community/hole cards: {:?}",
+                *c,
+                self
+            );
+            available_cards.pop(c);
+        }
+        available_cards
     }
 
     pub fn dump(&self) -> String {

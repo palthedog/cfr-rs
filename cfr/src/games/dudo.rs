@@ -1,18 +1,9 @@
 use std::fmt::Display;
 
-use more_asserts::{
-    assert_ge,
-    assert_gt,
-    assert_le,
-    assert_lt,
-    debug_assert_gt,
-};
+use more_asserts::{assert_ge, assert_gt, assert_le, assert_lt, debug_assert_gt};
 use rand::Rng;
 
-use super::{
-    Game,
-    PlayerId,
-};
+use super::{Game, PlayerId};
 
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub enum DudoAction {

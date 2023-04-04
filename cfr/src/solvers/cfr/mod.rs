@@ -1,20 +1,10 @@
 pub mod node;
 
-use std::{
-    cell::RefCell,
-    collections::HashMap,
-    rc::Rc,
-};
+use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
-use crate::{
-    eval::Strategy,
-    games::Game,
-};
+use crate::{eval::Strategy, games::Game};
 use clap::Args;
-use log::{
-    debug,
-    info,
-};
+use log::{debug, info};
 use more_asserts::assert_gt;
 use node::Node;
 

@@ -1,5 +1,6 @@
 pub mod abstraction;
 pub mod card;
+pub mod cards;
 pub mod dealer;
 pub mod deck;
 pub mod game;
@@ -9,13 +10,6 @@ pub mod rule;
 pub mod states;
 
 pub use self::{
-    abstraction::*,
-    card::*,
-    dealer::*,
-    deck::*,
-    game::*,
-    hands::*,
-    post_flop::*,
-    rule::*,
+    abstraction::*, card::*, dealer::*, deck::*, game::*, hands::*, post_flop::*, rule::*,
     states::*,
 };

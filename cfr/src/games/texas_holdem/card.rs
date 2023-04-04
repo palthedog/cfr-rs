@@ -1,13 +1,6 @@
-use std::{
-    char,
-    fmt,
-    str,
-};
+use std::{char, fmt, str};
 
-use more_asserts::{
-    debug_assert_ge,
-    debug_assert_le,
-};
+use more_asserts::{debug_assert_ge, debug_assert_le, debug_assert_lt};
 
 pub type Rank = u8;
 
@@ -53,12 +46,20 @@ pub fn rank_to_index(r: Rank) -> usize {
     14 - r as usize
 }
 
+pub fn index_to_rank(index: usize) -> Rank {
+    debug_assert_ge!(index, 0);
+    debug_assert_lt!(index, 13);
+    let r = 14 - index as Rank;
+    assert_rank(r);
+    r
+}
+
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Suit {
-    Spade,
-    Club,
-    Heart,
-    Diamond,
+    Spade = 0,
+    Club = 1,
+    Heart = 2,
+    Diamond = 3,
 }
 
 pub const SUITS: [Suit; 4] = [Suit::Spade, Suit::Club, Suit::Heart, Suit::Diamond];

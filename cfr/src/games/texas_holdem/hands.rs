@@ -1,11 +1,7 @@
 use iota::iota;
 use log::debug;
 
-use std::{
-    cmp::Reverse,
-    fmt,
-    str::FromStr,
-};
+use std::{cmp::Reverse, fmt, str::FromStr};
 
 use super::*;
 
